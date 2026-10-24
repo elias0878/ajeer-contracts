@@ -32,6 +32,20 @@ def check(name, cond, extra=''):
 def main():
     client = app.test_client()
 
+    # --- المصادقة (إلزامية قبل أي صفحة إدارية) ---
+    anon = app.test_client()
+    r = anon.get('/')
+    check('زائر بلا تسجيل دخول يُحوَّل إلى /login',
+          r.status_code == 302 and '/login' in r.headers.get('Location', ''))
+    r = anon.get('/api/admin/users')
+    check('واجهة الإدارة ترفض الزائر (401)', r.status_code == 401)
+    r = anon.post('/login', data={'email': 'admin@ajeer.sa', 'password': 'wrong-pass'})
+    check('كلمة مرور خاطئة لا تفتح الجلسة',
+          r.status_code == 200 and 'غير صحيحة' in r.get_data(as_text=True))
+    r = client.post('/login', data={'email': 'admin@ajeer.sa', 'password': 'Ajeer@2026'})
+    check('تسجيل دخول المالك', r.status_code == 302 and '/' in r.headers.get('Location', ''),
+          str(r.status_code))
+
     # --- الصفحات ---
     for path, needle in [
         ('/', 'لوحة التحكم'),
@@ -44,6 +58,44 @@ def main():
     ]:
         r = client.get(path)
         check(f'GET {path}', r.status_code == 200 and needle in r.get_data(as_text=True))
+
+    # --- صفحات الإدارة ---
+    for path, needle in [
+        ('/admin', 'إدارة المستخدمين'),
+        ('/admin?tab=perms', 'مصفوفة الصلاحيات'),
+        ('/admin?tab=audit', 'سجل النشاط'),
+        ('/account', 'تغيير كلمة المرور'),
+    ]:
+        r = client.get(path)
+        check(f'GET {path}', r.status_code == 200 and needle in r.get_data(as_text=True),
+              str(r.status_code))
+
+    # --- إنشاء مستخدم محدود الصلاحيات والتحقق من العزل ---
+    r = client.post('/api/admin/users', json={
+        'full_name': 'مستخدم اختبار', 'email': 'smoke@ajeer.sa', 'password': 'Smoke@123',
+        'role': 'user', 'permissions': ['contracts.view_own', 'contracts.create']})
+    check('POST /api/admin/users', r.status_code == 201, r.get_data(as_text=True)[:200])
+    smoke_id = (r.get_json() or {}).get('id')
+    sub = app.test_client()
+    r = sub.post('/login', data={'email': 'smoke@ajeer.sa', 'password': 'Smoke@123'})
+    check('دخول المستخدم المحدود', r.status_code == 302)
+    r = sub.get('/admin')
+    check('المستخدم المحدود لا يدخل لوحة الإدارة (403)', r.status_code == 403)
+    r = sub.get('/contracts/1')
+    check('عزل العقود: لا يرى عقد غيره (403)', r.status_code == 403)
+    r = sub.post('/api/admin/users', json={'full_name': 'x', 'email': 'x@y.sa', 'password': '123456'})
+    check('منع تصعيد الصلاحيات', r.status_code == 403)
+    r = client.post(f'/api/admin/users/{smoke_id}/toggle-active')
+    check('تعطيل الحساب', r.status_code == 200 and r.get_json().get('is_active') is False)
+    r = app.test_client().post('/login', data={'email': 'smoke@ajeer.sa', 'password': 'Smoke@123'})
+    check('الحساب المعطّل لا يستطيع الدخول',
+          'معطّل' in r.get_data(as_text=True))
+    r = client.delete(f'/api/admin/users/{smoke_id}')
+    check('حذف المستخدم', r.status_code == 200)
+    r = client.delete('/api/admin/users/1')
+    check('حماية حساب المالك من الحذف', r.status_code == 403)
+    r = client.get('/api/admin/audit')
+    check('سجل النشاط متاح للمالك', r.status_code == 200 and len(r.get_json()) > 0)
 
     # --- حالة النظام ---
     r = client.get('/api/health')

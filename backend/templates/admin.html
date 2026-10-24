@@ -1,0 +1,797 @@
+{% extends 'base.html' %}
+{% block title %}المستخدمون والصلاحيات{% endblock %}
+{% block crumb %}الإدارة / المستخدمون والصلاحيات{% endblock %}
+{% block heading %}إدارة المستخدمين{% endblock %}
+
+{% block topactions %}
+  {% if can('users.create') %}
+  <button class="btn btn-primary" onclick="openUserModal()">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+    مستخدم جديد
+  </button>
+  {% endif %}
+{% endblock %}
+
+{% block head %}
+<style>
+  .tabs{display:flex;gap:6px;padding:6px;background:#fff;border:1px solid var(--line);border-radius:14px;margin-bottom:18px;width:fit-content;box-shadow:var(--shadow-sm)}
+  .tabs a{padding:9px 16px;border-radius:10px;font-size:13px;font-weight:700;color:var(--ink-2);display:flex;align-items:center;gap:7px}
+  .tabs a.on{background:linear-gradient(135deg,var(--teal),#0f8b86);color:#fff;box-shadow:0 8px 18px rgba(19,160,154,.26)}
+  .tabs a .cnt{background:rgba(0,0,0,.08);border-radius:7px;padding:1px 7px;font-size:11px}
+  .tabs a.on .cnt{background:rgba(255,255,255,.22)}
+
+  table.tbl{width:100%;border-collapse:collapse;font-size:12.5px}
+  table.tbl th{text-align:right;padding:11px 12px;color:var(--muted);font-size:11px;font-weight:700;background:#f7fafd;border-bottom:1px solid var(--line);white-space:nowrap}
+  table.tbl td{padding:11px 12px;border-bottom:1px solid var(--line-2);vertical-align:middle}
+  table.tbl tr:last-child td{border-bottom:0}
+  table.tbl tbody tr:hover{background:#fafcff}
+  .u-cell{display:flex;align-items:center;gap:10px;min-width:180px}
+  .u-av{width:34px;height:34px;border-radius:11px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;color:#fff;flex:0 0 34px;background:linear-gradient(135deg,#13a09a,#2f6fd0)}
+  .u-av.owner{background:linear-gradient(135deg,#c98a06,#a56a00)}
+  .u-av.off{background:linear-gradient(135deg,#9aa9bb,#7c8b9e)}
+  .u-cell b{display:block;font-size:13px;line-height:1.35}
+  .u-cell small{color:var(--muted);font-size:10.5px}
+  .badge{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:8px;font-size:11px;font-weight:700;white-space:nowrap}
+  .b-owner{background:#fdf4e0;color:#906206}
+  .b-admin{background:#eaf1fc;color:#2f6fd0}
+  .b-user{background:#eef3f9;color:#5a7290}
+  .b-on{background:var(--green-soft);color:var(--green)}
+  .b-off{background:var(--red-soft);color:var(--red)}
+  .b-warn{background:#fdf4e0;color:#96660a}
+  .b-mut{background:#eef3f9;color:#5a7290}
+  .pcount{cursor:help;border-bottom:1px dotted #9fb0c4}
+  .rowact{position:relative}
+  .rowact .btn{padding:6px 9px}
+  .empty{padding:44px 18px;text-align:center;color:var(--muted);font-size:13px}
+  .empty svg{width:44px;height:44px;opacity:.35;margin-bottom:10px}
+
+  /* ---------- modal ---------- */
+  .modal{position:fixed;inset:0;background:rgba(8,24,44,.55);backdrop-filter:blur(3px);display:none;align-items:center;justify-content:center;padding:18px;z-index:90}
+  .modal.open{display:flex}
+  .modal-card{background:#fff;border-radius:18px;width:100%;max-width:860px;max-height:92vh;display:flex;flex-direction:column;box-shadow:0 30px 80px rgba(4,16,32,.4);overflow:hidden}
+  .modal-card.sm{max-width:460px}
+  .modal-card.md{max-width:600px}
+  .modal-h{display:flex;align-items:center;gap:12px;padding:16px 20px;border-bottom:1px solid var(--line);background:linear-gradient(135deg,#0b2545,#123a63)}
+  .modal-h h3{margin:0;font-size:15px;color:#fff}
+  .modal-h small{display:block;color:#9fbcd8;font-size:11px;font-weight:400}
+  .modal-h .x{margin-inline-start:auto;background:rgba(255,255,255,.12);border:0;color:#fff;width:32px;height:32px;border-radius:10px;cursor:pointer;font-size:17px;line-height:1}
+  .modal-h .x:hover{background:rgba(255,255,255,.22)}
+  .modal-b{padding:20px;overflow:auto;background:#fbfcfe}
+  .modal-f{padding:14px 20px;border-top:1px solid var(--line);display:flex;gap:9px;justify-content:flex-start;background:#fff}
+  .modal-f .spacer{flex:1}
+
+  .frow{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .fld{margin-bottom:14px}
+  .fld label{display:block;font-size:12px;font-weight:700;margin-bottom:6px;color:var(--ink-2)}
+  .fld label .req{color:var(--red)}
+  .fld input[type=text],.fld input[type=email],.fld input[type=password],.fld input[type=number],.fld input[type=date],.fld select{
+    width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:#fff;font-size:13px;outline:none;transition:.15s}
+  .fld input:focus,.fld select:focus{border-color:#a9d9d6;box-shadow:0 0 0 4px rgba(19,160,154,.1)}
+  .fld .hint{font-size:10.5px;color:var(--muted);margin-top:5px}
+  .fld .err{font-size:11px;color:var(--red);margin-top:5px;display:none}
+  .fld.bad input,.fld.bad select{border-color:#efb6b6;background:#fffafa}
+  .fld.bad .err{display:block}
+
+  .switch{display:flex;align-items:center;gap:10px;background:#f6f9fc;border:1px solid var(--line);border-radius:11px;padding:11px 13px;cursor:pointer}
+  .switch input{display:none}
+  .switch .track{width:38px;height:21px;border-radius:20px;background:#cfdbe8;position:relative;transition:.18s;flex:0 0 38px}
+  .switch .track::after{content:"";position:absolute;top:2.5px;right:2.5px;width:16px;height:16px;border-radius:50%;background:#fff;transition:.18s;box-shadow:0 1px 3px rgba(0,0,0,.25)}
+  .switch input:checked + .track{background:var(--teal)}
+  .switch input:checked + .track::after{right:19.5px}
+  .switch span{font-size:12.5px;font-weight:700}
+
+  .presets{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
+  .presets button{font-size:11.5px;padding:6px 11px;border-radius:9px;border:1px solid var(--line);background:#fff;cursor:pointer;font-weight:700;color:var(--ink-2)}
+  .presets button:hover{background:#f2f7fc;border-color:#cddced}
+  .perm-group{border:1px solid var(--line);border-radius:12px;overflow:hidden;margin-bottom:12px;background:#fff}
+  .perm-group > header{display:flex;align-items:center;gap:8px;padding:10px 13px;background:#f4f8fc;border-bottom:1px solid var(--line-2);font-size:12.5px;font-weight:700}
+  .perm-group > header .cnt{font-size:10.5px;color:var(--muted);background:#eaf0f8;border-radius:6px;padding:1px 7px}
+  .perm-group > header .spacer{flex:1}
+  .perm-group > header button{font-size:10.5px;background:none;border:0;color:var(--teal-2);cursor:pointer;font-weight:700}
+  .perm{display:flex;gap:10px;padding:10px 13px;border-bottom:1px solid #f2f6fb;cursor:pointer;align-items:flex-start}
+  .perm:last-child{border-bottom:0}
+  .perm:hover{background:#fafcff}
+  .perm input{margin-top:3px;width:15px;height:15px;accent-color:var(--teal);flex:0 0 15px}
+  .perm b{font-size:12.5px;display:block;line-height:1.4}
+  .perm small{font-size:10.5px;color:var(--muted);display:block;line-height:1.6}
+  .perm.denied{opacity:.5;pointer-events:none}
+
+  /* ---------- actions sheet ---------- */
+  .act-item{display:flex;align-items:center;gap:11px;padding:12px 13px;border:1px solid var(--line);border-radius:12px;background:#fff;margin-bottom:9px}
+  .act-item .ai{width:34px;height:34px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex:0 0 34px;background:#eef3f9;color:#3f5a78}
+  .act-item .ai svg{width:17px;height:17px}
+  .act-item .at{flex:1;min-width:0}
+  .act-item .at b{display:block;font-size:12.5px}
+  .act-item .at small{display:block;font-size:10.5px;color:var(--muted);line-height:1.6}
+  .act-item .ab{border:1px solid var(--line);background:#fff;border-radius:9px;padding:6px 12px;font-size:11.5px;font-weight:700;cursor:pointer;color:var(--ink-2);white-space:nowrap}
+  .act-item .ab:hover{background:#f5f9fd}
+  .act-item.warn{background:#fffaf0;border-color:#f6e2bd}
+  .act-item.warn .ai{background:#fdf1d8;color:#a06c05}
+  .act-item.danger{background:#fff6f6;border-color:#f6d5d5}
+  .act-item.danger .ai{background:#fdeaea;color:#c33}
+  .act-item.danger .ab{color:#c33;border-color:#f0c9c9}
+  .confirm{display:flex;gap:7px;margin-top:9px}
+  .confirm button{flex:1;padding:8px;border-radius:9px;font-size:11.5px;font-weight:700;cursor:pointer;border:1px solid var(--line);background:#fff}
+  .confirm .yes{background:#c33;color:#fff;border-color:#c33}
+  .confirm .yes.warn{background:#b8790a;border-color:#b8790a}
+
+  .matrix{width:100%;border-collapse:collapse;font-size:11.5px}
+  .matrix th{background:#f7fafd;border-bottom:1px solid var(--line);padding:9px 8px;font-size:10.5px;color:var(--muted);white-space:nowrap}
+  .matrix td{border-bottom:1px solid var(--line-2);padding:8px;text-align:center}
+  .matrix td:first-child{text-align:right;font-weight:700;white-space:nowrap}
+  .matrix .yes{color:var(--green);font-weight:700}
+  .matrix .no{color:#c9d4e0}
+  .matrix tbody tr:hover{background:#fafcff}
+  .legend{display:flex;gap:14px;font-size:11px;color:var(--muted);padding:12px 16px;border-top:1px solid var(--line-2);flex-wrap:wrap}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="grid stats">
+  <div class="stat">
+    <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="9" cy="8" r="3.4"/><path d="M2.6 20c.7-3.4 3.3-5.4 6.4-5.4S15 16.6 15.7 20"/><path d="M17 5.2a3.4 3.4 0 0 1 0 6.6"/></svg></div>
+    <div><div class="num">{{ stats.total }}</div><div class="lbl">إجمالي المستخدمين</div></div>
+  </div>
+  <div class="stat s-active">
+    <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20 6L9 17l-5-5"/></svg></div>
+    <div><div class="num">{{ stats.active }}</div><div class="lbl">حسابات نشطة</div></div>
+  </div>
+  <div class="stat s-expired">
+    <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M8 12h8"/></svg></div>
+    <div><div class="num">{{ stats.inactive }}</div><div class="lbl">حسابات معطّلة</div></div>
+  </div>
+  <div class="stat s-soon">
+    <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></div>
+    <div><div class="num">{{ stats.expired }}</div><div class="lbl">منتهية الصلاحية</div></div>
+  </div>
+</div>
+
+<div class="tabs">
+  {% if can('users.view') %}
+  <a href="{{ url_for('admin_page', tab='users') }}" class="{{ 'on' if tab == 'users' }}">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="8" r="3.4"/><path d="M2.6 20c.7-3.4 3.3-5.4 6.4-5.4S15 16.6 15.7 20"/></svg>
+    المستخدمون <span class="cnt">{{ users|length }}</span>
+  </a>
+  {% endif %}
+  {% if can('permissions.view') %}
+  <a href="{{ url_for('admin_page', tab='perms') }}" class="{{ 'on' if tab == 'perms' }}">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
+    مصفوفة الصلاحيات
+  </a>
+  {% endif %}
+  {% if can('audit.view') %}
+  <a href="{{ url_for('admin_page', tab='audit') }}" class="{{ 'on' if tab == 'audit' }}">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 8v5l3 2"/><circle cx="12" cy="12" r="9"/></svg>
+    سجل النشاط <span class="cnt">{{ audit_count }}</span>
+  </a>
+  {% endif %}
+</div>
+
+{% if tab == 'users' %}
+<div class="card">
+  <div class="toolbar">
+    <div class="search">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+      <input type="search" id="uq" placeholder="بحث بالاسم أو البريد الإلكتروني…" oninput="filterUsers(this.value)">
+    </div>
+    <div class="chips" id="ufilter">
+      <button class="chip on" data-f="all" onclick="setFilter('all')">الكل</button>
+      <button class="chip" data-f="active" onclick="setFilter('active')">نشط</button>
+      <button class="chip" data-f="inactive" onclick="setFilter('inactive')">معطّل</button>
+      <button class="chip" data-f="expired" onclick="setFilter('expired')">منتهي</button>
+      <button class="chip" data-f="owner" onclick="setFilter('owner')">المالك</button>
+    </div>
+    <div class="spacer" style="flex:1"></div>
+    <span style="font-size:11.5px;color:var(--muted)">الصلاحيات الدقيقة لكل مستخدم تُعدَّل من زر الإجراءات</span>
+  </div>
+
+  <div style="overflow-x:auto">
+  <table class="tbl">
+    <thead>
+      <tr>
+        <th>المستخدم</th>
+        <th>البريد الإلكتروني</th>
+        <th>الدور</th>
+        <th>أنشأه</th>
+        <th>الحالة</th>
+        <th>الصلاحيات</th>
+        <th>التعاقدات</th>
+        <th>صلاحية الحساب</th>
+        <th>آخر دخول</th>
+        <th style="text-align:center">إجراءات</th>
+      </tr>
+    </thead>
+    <tbody id="ubody">
+    {% for u in users %}
+      <tr data-id="{{ u.id }}"
+          data-name="{{ (u.full_name or '')|lower }}"
+          data-email="{{ (u.email or '')|lower }}"
+          data-state="{{ 'owner' if u.is_owner else ('expired' if u.is_expired else ('inactive' if not u.is_active else 'active')) }}">
+        <td>
+          <div class="u-cell">
+            <span class="u-av {{ 'owner' if u.is_owner else ('' if u.is_active else 'off') }}">{{ (u.full_name or u.email)[0] }}</span>
+            <div>
+              <b>{{ u.full_name or '—' }}</b>
+              <small>أُنشئ {{ u.created_at|dshort }}</small>
+            </div>
+          </div>
+        </td>
+        <td dir="ltr" style="text-align:right;color:var(--ink-2)">{{ u.email }}</td>
+        <td>
+          <span class="badge {{ 'b-owner' if u.role=='owner' else ('b-admin' if u.role=='admin' else 'b-user') }}">
+            {{ roles.get(u.role, u.role) }}
+          </span>
+        </td>
+        <td style="color:var(--muted);font-size:11.5px">{{ u.created_by_name }}</td>
+        <td>
+          {% if not u.is_active %}<span class="badge b-off">معطّل</span>
+          {% elif u.is_expired %}<span class="badge b-warn">منتهي</span>
+          {% else %}<span class="badge b-on">نشط</span>{% endif %}
+        </td>
+        <td>
+          {% if u.is_owner %}
+            <span class="badge b-owner" title="المالك يملك جميع الصلاحيات ضمنياً">كل الصلاحيات</span>
+          {% else %}
+            <span class="pcount" title="{% for p in u.permissions %}{{ permission_map[p].label if p in permission_map else p }}{% if not loop.last %} · {% endif %}{% endfor %}">{{ u.permissions|length }} / {{ max_perms }}</span>
+          {% endif %}
+        </td>
+        <td>
+          <span style="font-weight:700">{{ u.contract_count }}</span>
+          <span style="color:var(--muted);font-size:11px">{% if u.contract_limit is not none %} / {{ u.contract_limit }}{% else %} / بلا حد{% endif %}</span>
+        </td>
+        <td style="font-size:11.5px;color:var(--muted)">
+          {% if u.expires_at %}<span class="{{ 'badge b-warn' if u.is_expired else '' }}">{{ u.expires_at|dshort }}</span>{% else %}بلا انتهاء{% endif %}
+        </td>
+        <td style="font-size:11.5px;color:var(--muted)">{{ u.last_login_at|dt if u.last_login_at else 'لم يدخل بعد' }}</td>
+        <td style="text-align:center">
+          <button class="btn btn-sm" onclick="openActions({{ u.id }})" title="خيارات الإجراءات">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="12" cy="19" r="1.8"/></svg>
+          </button>
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% if not users %}
+  <div class="empty">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="8" r="3.6"/><path d="M4.5 20c.8-3.8 3.8-6 7.5-6s6.7 2.2 7.5 6"/></svg>
+    <div>لا يوجد مستخدمون بعد</div>
+  </div>
+  {% endif %}
+  <div class="legend">
+    <span>• المالك يملك جميع الصلاحيات ولا يمكن تعديله أو تعطيله أو حذفه</span>
+    <span>• الحد الأقصى للتعاقدات يمنع إنشاء أكثر من العدد المسموح</span>
+    <span>• تعطيل الحساب يُنهي جميع جلساته فوراً</span>
+  </div>
+</div>
+
+{% elif tab == 'perms' %}
+<div class="card">
+  <div class="card-h">
+    <h2>مصفوفة الصلاحيات</h2>
+    <div class="spacer"></div>
+    <span style="font-size:11.5px;color:var(--muted)">عرض سريع — للتعديل استخدم زر الإجراءات لكل مستخدم</span>
+  </div>
+  <div style="overflow-x:auto">
+    <table class="matrix">
+      <thead>
+        <tr>
+          <th>المستخدم</th>
+          {% for cat in catalog_by_category.keys() %}
+          <th>{{ cat }}</th>
+          {% endfor %}
+          <th>الإجمالي</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for u in users %}
+        <tr>
+          <td>{{ u.full_name }}{% if u.is_owner %} <span class="badge b-owner">المالك</span>{% endif %}</td>
+          {% for cat, items in catalog_by_category.items() %}
+            {% set granted = items|selectattr('key','in',u.permissions)|list|length %}
+            <td>
+              {% if u.is_owner %}
+                <span class="yes">{{ items|length }}/{{ items|length }}</span>
+              {% elif granted == 0 %}
+                <span class="no">—</span>
+              {% else %}
+                <span class="{{ 'yes' if granted == items|length else '' }}">{{ granted }}/{{ items|length }}</span>
+              {% endif %}
+            </td>
+          {% endfor %}
+          <td><b>{{ u.permissions|length if not u.is_owner else max_perms }}</b> / {{ max_perms }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="legend">
+    {% for cat, items in catalog_by_category.items() %}
+      <span><b>{{ cat }}:</b> {{ items|length }} صلاحية</span>
+    {% endfor %}
+  </div>
+</div>
+
+{% elif tab == 'audit' %}
+<div class="card">
+  <form class="toolbar" method="get" action="{{ url_for('admin_page') }}">
+    <input type="hidden" name="tab" value="audit">
+    <div class="search">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+      <input type="search" name="aq" value="{{ aq }}" placeholder="بحث في المنفّذ أو العملية أو رقم العنصر…">
+    </div>
+    <select name="action" class="btn" style="padding:9px 12px">
+      <option value="">كل العمليات</option>
+      <option value="auth." {{ 'selected' if aact=='auth.' }}>تسجيل الدخول</option>
+      <option value="contracts." {{ 'selected' if aact=='contracts.' }}>التعاقدات</option>
+      <option value="users." {{ 'selected' if aact=='users.' }}>المستخدمون</option>
+      <option value="permissions." {{ 'selected' if aact=='permissions.' }}>الصلاحيات</option>
+      <option value="settings." {{ 'selected' if aact=='settings.' }}>الإعدادات</option>
+    </select>
+    <button class="btn" type="submit">تصفية</button>
+    <div class="spacer" style="flex:1"></div>
+    <a class="btn btn-ghost btn-sm" href="{{ url_for('api_audit', limit=500) }}" target="_blank">تصدير JSON</a>
+  </form>
+
+  <div style="overflow-x:auto">
+  <table class="tbl">
+    <thead>
+      <tr>
+        <th>الوقت</th>
+        <th>المنفّذ</th>
+        <th>العملية</th>
+        <th>العنصر</th>
+        <th>التفاصيل</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for a in audit %}
+      <tr>
+        <td style="white-space:nowrap;color:var(--muted);font-size:11.5px">{{ a.created_at|dt }}</td>
+        <td style="white-space:nowrap"><b style="font-size:12px">{{ a.actor_email }}</b></td>
+        <td><span class="badge {{ 'b-off' if 'delete' in a.action else ('b-on' if 'create' in a.action else ('b-admin' if 'users' in a.action or 'permissions' in a.action else 'b-mut')) }}">{{ action_label(a.action) }}</span></td>
+        <td style="color:var(--muted);font-size:11.5px">{{ a.entity }}{% if a.entity_id %} #{{ a.entity_id }}{% endif %}</td>
+        <td style="max-width:340px">
+          <div style="font-size:11px;color:var(--ink-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="{{ a.details|tojson }}">
+            {{ details_text(a.details) }}
+          </div>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% if not audit %}
+  <div class="empty">لا توجد عمليات مسجلة بعد</div>
+  {% endif %}
+  <div class="legend"><span>يُسجَّل كل إجراء تلقائياً ولا يمكن لأي مستخدم تعديل السجل أو حذفه</span></div>
+</div>
+{% endif %}
+
+<!-- ============ نافذة إنشاء/تعديل مستخدم ============ -->
+<div class="modal" id="userModal">
+  <div class="modal-card">
+    <div class="modal-h">
+      <div>
+        <h3 id="umTitle">مستخدم جديد</h3>
+        <small id="umSub">إنشاء حساب وإسناد الصلاحيات</small>
+      </div>
+      <button class="x" onclick="closeModal('userModal')">×</button>
+    </div>
+    <div class="modal-b">
+      <div class="frow">
+        <div class="fld" id="f-full_name">
+          <label>الاسم الكامل <span class="req">*</span></label>
+          <input type="text" id="u_full_name" placeholder="مثال: أحمد محمد">
+          <div class="err"></div>
+        </div>
+        <div class="fld" id="f-email">
+          <label>البريد الإلكتروني <span class="req">*</span></label>
+          <input type="email" id="u_email" dir="ltr" placeholder="user@example.com">
+          <div class="err"></div>
+        </div>
+      </div>
+
+      <div class="frow">
+        <div class="fld" id="f-password">
+          <label>كلمة المرور <span class="req" id="pwReq">*</span></label>
+          <input type="password" id="u_password" placeholder="••••••••" autocomplete="new-password">
+          <div class="hint" id="pwHint">6 محارف على الأقل</div>
+          <div class="err"></div>
+        </div>
+        <div class="fld">
+          <label>الدور</label>
+          <select id="u_role">
+            <option value="user">مستخدم</option>
+            <option value="admin">مدير</option>
+          </select>
+          <div class="hint">الدور تصنيفي فقط — الصلاحيات الفعلية من المصفوفة أدناه</div>
+        </div>
+      </div>
+
+      <div class="frow">
+        <div class="fld" id="f-contract_limit">
+          <label>الحد الأقصى للتعاقدات</label>
+          <input type="number" id="u_limit" min="0" placeholder="بلا حد">
+          <div class="hint">اتركه فارغاً لعدم وضع حد</div>
+          <div class="err"></div>
+        </div>
+        <div class="fld" id="f-expires">
+          <label>صلاحية الحساب</label>
+          <select id="u_validity" onchange="onValidityChange()">
+            <option value="">بلا انتهاء</option>
+            <option value="6">6 أشهر</option>
+            <option value="10">10 أشهر</option>
+            <option value="12">سنة</option>
+            <option value="custom">تاريخ مخصص</option>
+          </select>
+          <input type="date" id="u_expires_date" style="display:none;margin-top:8px">
+          <div class="err"></div>
+        </div>
+      </div>
+
+      <label class="switch" style="margin-bottom:16px">
+        <input type="checkbox" id="u_active" checked>
+        <span class="track"></span>
+        <span>الحساب نشط ويمكنه تسجيل الدخول</span>
+      </label>
+
+      <div style="display:flex;align-items:center;gap:10px;margin:18px 0 10px">
+        <b style="font-size:13px">الصلاحيات</b>
+        <span class="badge b-mut" id="permCount">0 ممنوحة</span>
+        <div style="flex:1"></div>
+        <div class="presets" style="margin:0">
+          <button type="button" onclick="applyPreset('admin')">مدير</button>
+          <button type="button" onclick="applyPreset('user')">مستخدم</button>
+          <button type="button" onclick="applyPreset('none')">مسح الكل</button>
+        </div>
+      </div>
+
+      {% for cat, items in catalog_by_category.items() %}
+      <div class="perm-group" data-cat="{{ cat }}">
+        <header>
+          <span>{{ cat }}</span><span class="cnt">{{ items|length }}</span>
+          <span class="spacer"></span>
+          <button type="button" onclick="toggleGroup('{{ cat }}', true)">تحديد الكل</button>
+          <button type="button" onclick="toggleGroup('{{ cat }}', false)">إلغاء الكل</button>
+        </header>
+        {% for p in items %}
+        <label class="perm" data-perm="{{ p.key }}">
+          <input type="checkbox" value="{{ p.key }}" onchange="updatePermCount()">
+          <span><b>{{ p.label }}</b><small>{{ p.description }}</small></span>
+        </label>
+        {% endfor %}
+      </div>
+      {% endfor %}
+    </div>
+    <div class="modal-f">
+      <button class="btn btn-primary" id="umSave" onclick="saveUser()">حفظ</button>
+      <button class="btn" onclick="closeModal('userModal')">إلغاء</button>
+      <div class="spacer"></div>
+      <span id="umMsg" style="font-size:11.5px;color:var(--red);align-self:center"></span>
+    </div>
+  </div>
+</div>
+
+<!-- ============ نافذة الإجراءات ============ -->
+<div class="modal" id="actModal">
+  <div class="modal-card md">
+    <div class="modal-h">
+      <div>
+        <h3 id="amTitle">إجراءات المستخدم</h3>
+        <small id="amSub"></small>
+      </div>
+      <button class="x" onclick="closeModal('actModal')">×</button>
+    </div>
+    <div class="modal-b" id="amBody"></div>
+    <div class="modal-f">
+      <button class="btn" onclick="closeModal('actModal')">إغلاق</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ نافذة كلمة المرور ============ -->
+<div class="modal" id="pwModal">
+  <div class="modal-card sm">
+    <div class="modal-h">
+      <div><h3>إعادة تعيين كلمة المرور</h3><small id="pwSub"></small></div>
+      <button class="x" onclick="closeModal('pwModal')">×</button>
+    </div>
+    <div class="modal-b">
+      <div class="fld" id="f-pw2">
+        <label>كلمة المرور الجديدة</label>
+        <input type="text" id="pw_new" placeholder="6 محارف على الأقل" dir="ltr">
+        <div class="err"></div>
+      </div>
+      <div style="font-size:11.5px;color:var(--muted)">سيتم إنهاء جميع جلسات المستخدم الحالية وإلزامه بكلمة المرور الجديدة.</div>
+    </div>
+    <div class="modal-f">
+      <button class="btn btn-primary" onclick="doResetPassword()">تعيين</button>
+      <button class="btn" onclick="closeModal('pwModal')">إلغاء</button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const USERS = {{ users|tojson }};
+const PRESETS = {{ role_presets|tojson }};
+const ME = {{ (me.id if me else 0) }};
+const CAN = {
+  edit: {{ 'true' if can('users.edit') else 'false' }},
+  create: {{ 'true' if can('users.create') else 'false' }},
+  del: {{ 'true' if can('users.delete') else 'false' }},
+  activate: {{ 'true' if can('users.activate') else 'false' }},
+  reset: {{ 'true' if can('users.reset_password') else 'false' }},
+  perms: {{ 'true' if can('permissions.manage') else 'false' }},
+  bulk: {{ 'true' if can('contracts.edit_all') else 'false' }},
+  bulkDel: {{ 'true' if can('contracts.delete_all') else 'false' }}
+};
+const PERM_LABELS = {{ permission_map|tojson }};
+let editId = null, actUser = null, filterState = 'all', searchTerm = '';
+
+/* ---------------- search & filter ---------------- */
+function filterUsers(term){ searchTerm = (term||'').trim().toLowerCase(); applyFilter(); }
+function setFilter(f){
+  filterState = f;
+  document.querySelectorAll('#ufilter .chip').forEach(b => b.classList.toggle('on', b.dataset.f === f));
+  applyFilter();
+}
+function applyFilter(){
+  document.querySelectorAll('#ubody tr').forEach(function(tr){
+    const okState = filterState === 'all' || tr.dataset.state === filterState;
+    const okText = !searchTerm || tr.dataset.name.includes(searchTerm) || tr.dataset.email.includes(searchTerm);
+    tr.style.display = (okState && okText) ? '' : 'none';
+  });
+}
+
+/* ---------------- user modal ---------------- */
+function openUserModal(user){
+  editId = user ? user.id : null;
+  document.getElementById('umTitle').textContent = user ? 'تعديل بيانات المستخدم' : 'مستخدم جديد';
+  document.getElementById('umSub').textContent = user ? user.email : 'إنشاء حساب وإسناد الصلاحيات';
+  document.getElementById('u_full_name').value = user ? (user.full_name || '') : '';
+  document.getElementById('u_email').value = user ? user.email : '';
+  document.getElementById('u_password').value = '';
+  document.getElementById('pwReq').style.display = user ? 'none' : '';
+  document.getElementById('pwHint').textContent = user ? 'اتركها فارغة لعدم التغيير' : '6 محارف على الأقل';
+  document.getElementById('u_role').value = user && user.role === 'admin' ? 'admin' : 'user';
+  document.getElementById('u_limit').value = user && user.contract_limit != null ? user.contract_limit : '';
+  document.getElementById('u_active').checked = user ? !!user.is_active : true;
+  document.getElementById('u_expires_date').value = user && user.expires_at ? String(user.expires_at).slice(0,10) : '';
+  const vsel = document.getElementById('u_validity');
+  vsel.value = user && user.expires_at ? 'custom' : '';
+  onValidityChange();
+  document.querySelectorAll('.perm input[type=checkbox]').forEach(function(cb){
+    cb.checked = user ? (user.permissions || []).includes(cb.value) : false;
+  });
+  applyPreset(user ? null : 'user');
+  if (user) updatePermCount();
+  clearFieldErrors();
+  document.getElementById('umMsg').textContent = '';
+  document.getElementById('umSave').textContent = user ? 'حفظ التعديلات' : 'إنشاء المستخدم';
+  openModal('userModal');
+}
+function onValidityChange(){
+  const v = document.getElementById('u_validity').value;
+  document.getElementById('u_expires_date').style.display = v === 'custom' ? 'block' : 'none';
+}
+function applyPreset(kind){
+  if (kind === null) { updatePermCount(); return; }
+  const list = kind === 'none' ? [] : (PRESETS[kind] || []);
+  document.querySelectorAll('.perm input[type=checkbox]').forEach(function(cb){
+    cb.checked = list.includes(cb.value);
+  });
+  updatePermCount();
+}
+function toggleGroup(cat, on){
+  const g = document.querySelector('.perm-group[data-cat="' + cat + '"]');
+  if (!g) return;
+  g.querySelectorAll('input[type=checkbox]').forEach(cb => cb.checked = on);
+  updatePermCount();
+}
+function updatePermCount(){
+  const n = document.querySelectorAll('.perm input[type=checkbox]:checked').length;
+  document.getElementById('permCount').textContent = n + ' ممنوحة';
+}
+function clearFieldErrors(){
+  document.querySelectorAll('.fld.bad').forEach(f => f.classList.remove('bad'));
+  document.querySelectorAll('.fld .err').forEach(e => e.textContent = '');
+}
+function showFieldError(field, msg){
+  const box = document.getElementById('f-' + field);
+  if (!box) return;
+  box.classList.add('bad');
+  const e = box.querySelector('.err'); if (e) e.textContent = msg;
+}
+function collectPermissions(){
+  return Array.from(document.querySelectorAll('.perm input[type=checkbox]:checked')).map(cb => cb.value);
+}
+async function saveUser(){
+  clearFieldErrors();
+  const msg = document.getElementById('umMsg'); msg.textContent = '';
+  const body = {
+    full_name: document.getElementById('u_full_name').value.trim(),
+    email: document.getElementById('u_email').value.trim(),
+    role: document.getElementById('u_role').value,
+    is_active: document.getElementById('u_active').checked,
+    contract_limit: document.getElementById('u_limit').value === '' ? null : Number(document.getElementById('u_limit').value),
+    permissions: collectPermissions()
+  };
+  const v = document.getElementById('u_validity').value;
+  if (v === 'custom') body.expires_at = document.getElementById('u_expires_date').value || null;
+  else if (v) body.validity_months = Number(v);
+  else body.expires_at = null;
+
+  const pw = document.getElementById('u_password').value;
+  if (!editId) {
+    if (!pw) { showFieldError('password', 'كلمة المرور مطلوبة'); return; }
+    body.password = pw;
+  } else if (pw) { body.password = pw; }
+
+  const btn = document.getElementById('umSave');
+  btn.disabled = true; btn.textContent = 'جارٍ الحفظ…';
+  try {
+    const url = editId ? '/api/admin/users/' + editId : '/api/admin/users';
+    const res = await fetch(url, {
+      method: editId ? 'PATCH' : 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(body)
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      if (data.fieldErrors) Object.keys(data.fieldErrors).forEach(k => showFieldError(k, data.fieldErrors[k]));
+      msg.textContent = data.error || 'فشل الحفظ';
+      return;
+    }
+    if (editId && pw) {
+      await fetch('/api/admin/users/' + editId + '/reset-password', {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({password: pw})
+      });
+    }
+    location.reload();
+  } catch (e) {
+    msg.textContent = 'تعذّر الاتصال بالخادم';
+  } finally {
+    btn.disabled = false; btn.textContent = editId ? 'حفظ التعديلات' : 'إنشاء المستخدم';
+  }
+}
+
+/* ---------------- actions sheet ---------------- */
+function openActions(id){
+  actUser = USERS.find(u => Number(u.id) === Number(id));
+  if (!actUser) return;
+  const isOwnerTarget = actUser.role === 'owner';
+  const isMe = Number(actUser.id) === Number(ME);
+  document.getElementById('amTitle').textContent = actUser.full_name || actUser.email;
+  document.getElementById('amSub').textContent = actUser.email + ' · ' + (actUser.permissions || []).length + ' صلاحية';
+  const body = document.getElementById('amBody');
+  body.innerHTML = '';
+
+  body.appendChild(actItem({
+    icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 20h4l10-10-4-4L4 16v4z"/><path d="M13.5 5.5l4 4"/></svg>',
+    label: 'تعديل البيانات والصلاحيات',
+    desc: isOwnerTarget ? 'حساب المالك محمي — استخدم صفحة «حسابي»' : 'تعديل الاسم والبريد والدور والحدود ومصفوفة الصلاحيات',
+    disabled: isOwnerTarget || !CAN.edit,
+    run: () => { closeModal('actModal'); openUserModal(actUser); }
+  }));
+  body.appendChild(actItem({
+    icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="8" cy="15" r="4"/><path d="M11 12l8-8 3 3-2 2-2-2"/></svg>',
+    label: 'إعادة تعيين كلمة المرور',
+    desc: 'تعيين كلمة مرور جديدة وإنهاء جميع جلساته',
+    disabled: !CAN.reset,
+    run: () => { closeModal('actModal'); openPwModal(actUser); }
+  }));
+  body.appendChild(actItem({
+    icon: actUser.is_active
+      ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M8 12h8"/></svg>'
+      : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M9 12l2 2 4-4"/></svg>',
+    label: actUser.is_active ? 'تعطيل الحساب (إلغاء)' : 'تفعيل الحساب',
+    desc: actUser.is_active ? 'منع الدخول فوراً وإنهاء الجلسات' : 'السماح للمستخدم بالدخول مرة أخرى',
+    disabled: isOwnerTarget || isMe || !CAN.activate,
+    warn: true,
+    run: () => post(`/api/admin/users/${actUser.id}/toggle-active`, {}, 'تم تغيير حالة الحساب')
+  }));
+  body.appendChild(actItem({
+    icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 5l14 14M19 5L5 19"/></svg>',
+    label: 'إيقاف (إلغاء) جميع تعاقدات المستخدم',
+    desc: 'جعل تواريخ انتهاء كل تعاقداته في الأمس — تبقى محفوظة في السجل',
+    disabled: !CAN.bulk,
+    warn: true,
+    run: () => post(`/api/admin/users/${actUser.id}/contracts/revoke`, {}, 'تم إلغاء التعاقدات')
+  }));
+  body.appendChild(actItem({
+    icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></svg>',
+    label: 'حذف جميع تعاقدات المستخدم',
+    desc: 'حذف نهائي لكل التعاقدات التي أنشأها هذا المستخدم',
+    disabled: !CAN.bulkDel,
+    danger: true,
+    run: () => post(`/api/admin/users/${actUser.id}/contracts/delete`, {}, 'تم حذف التعاقدات')
+  }));
+  body.appendChild(actItem({
+    icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 7h16M8 7V4h8v3"/><path d="M6 7l1 13h10l1-13"/><path d="M10 11v5M14 11v5"/></svg>',
+    label: 'حذف المستخدم نهائياً',
+    desc: isMe ? 'لا يمكنك حذف حسابك' : 'إزالة الحساب وجلساته وصلاحياته (تبقى تعاقداته في السجل)',
+    disabled: isOwnerTarget || isMe || !CAN.del,
+    danger: true,
+    run: () => post(`/api/admin/users/${actUser.id}`, {method: 'DELETE'}, 'تم حذف المستخدم')
+  }));
+  openModal('actModal');
+}
+
+function actItem(o){
+  const wrap = document.createElement('div');
+  wrap.className = 'act-item' + (o.danger ? ' danger' : (o.warn ? ' warn' : ''));
+  wrap.innerHTML = `<div class="ai">${o.icon}</div>
+    <div class="at"><b>${o.label}</b><small>${o.desc}</small></div>
+    <button class="ab" type="button">تنفيذ</button>`;
+  const btn = wrap.querySelector('.ab');
+  if (o.disabled) { btn.disabled = true; btn.style.opacity = '.45'; btn.style.cursor = 'not-allowed'; }
+  btn.addEventListener('click', function(){
+    if (o.disabled) return;
+    if (wrap.dataset.confirming) return;
+    wrap.dataset.confirming = '1';
+    const box = document.createElement('div');
+    box.className = 'confirm';
+    box.innerHTML = '<button type="button" class="yes ' + (o.danger ? '' : 'warn') + '">نعم، تأكيد التنفيذ</button>' +
+                    '<button type="button" class="back">تراجع</button>';
+    wrap.appendChild(box);
+    btn.style.display = 'none';
+    box.querySelector('.back').onclick = function(){
+      box.remove(); delete wrap.dataset.confirming; btn.style.display = '';
+    };
+    box.querySelector('.yes').onclick = function(){
+      box.remove(); delete wrap.dataset.confirming;
+      o.run();
+    };
+  });
+  return wrap;
+}
+
+async function post(url, body, okMsg){
+  if (body.method === 'DELETE') {
+    const res = await fetch(url, {method: 'DELETE'});
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) { toast(data.error || 'فشل الإجراء', 'error'); return; }
+    location.reload(); return;
+  }
+  const res = await fetch(url, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)});
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) { toast(data.error || 'فشل الإجراء', 'error'); return; }
+  location.reload();
+}
+
+/* ---------------- password modal ---------------- */
+function openPwModal(u){
+  document.getElementById('pwSub').textContent = u.full_name + ' · ' + u.email;
+  document.getElementById('pw_new').value = '';
+  clearFieldErrors();
+  openModal('pwModal');
+}
+async function doResetPassword(){
+  clearFieldErrors();
+  const pw = document.getElementById('pw_new').value;
+  if (pw.length < 6) { showFieldError('pw2', 'كلمة المرور يجب ألا تقل عن 6 محارف'); return; }
+  const res = await fetch('/api/admin/users/' + actUser.id + '/reset-password', {
+    method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({password: pw})
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    if (data.fieldErrors && data.fieldErrors.password) showFieldError('pw2', data.fieldErrors.password);
+    else toast(data.error || 'فشل الإجراء', 'error');
+    return;
+  }
+  location.reload();
+}
+
+/* ---------------- modal helpers ---------------- */
+function openModal(id){ document.getElementById(id).classList.add('open'); }
+function closeModal(id){ document.getElementById(id).classList.remove('open'); }
+document.querySelectorAll('.modal').forEach(function(m){
+  m.addEventListener('click', function(e){ if (e.target === m) m.classList.remove('open'); });
+});
+</script>
+{% endblock %}

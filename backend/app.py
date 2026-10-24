@@ -2,6 +2,7 @@
 """
 منصة إدارة وإنشاء العقود — تعاقد أجير
 Flask app (Vercel-ready, Supabase / SQLite)
+مع نظام حسابات وصلاحيات وسجل نشاط على نمط لوحة «بلدي».
 """
 import base64
 import io
@@ -9,13 +10,21 @@ import os
 import random
 import re
 import string
-from datetime import date, datetime
+from datetime import date, datetime, timedelta, timezone
 
-from flask import (Flask, abort, flash, jsonify, redirect, render_template,
+from flask import (Flask, abort, flash, g, jsonify, redirect, render_template,
                    request, send_file, url_for)
 
+import auth
+import authstore as store
+from auth import (account_expired, can, can_any, can_manage_target, current_user,
+                  deny, display_name, ensure_bootstrap, is_owner, is_self,
+                  log_audit, login_required, permission_required, permissions)
 from db import FIELDS, get_db
 from pdfdoc import build_pdf
+from permissions import (CATEGORIES, PERMISSION_CATALOG, PERMISSION_KEYS,
+                         PERMISSION_MAP, ROLE_LABELS, ROLE_PRESETS,
+                         catalog_by_category)
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -25,6 +34,7 @@ app = Flask(__name__,
 app.secret_key = os.environ.get('SECRET_KEY', 'ajeer-contracts-2026-secret')
 app.config['JSON_AS_ASCII'] = False
 app.config['MAX_CONTENT_LENGTH'] = 2 * 1024 * 1024
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=30)
 
 PUBLIC_BASE = (os.environ.get('PUBLIC_BASE_URL') or '').rstrip('/')
 
@@ -124,18 +134,273 @@ def payload(src):
     return {k: (src.get(k) or '').strip() for k in FIELDS}
 
 
-# ---------------------------------------------------------------- routes
+def owns(c, user=None):
+    u = user or current_user()
+    if not u or c.get('created_by') in (None, ''):
+        return False
+    return int(c['created_by']) == int(u['id'])
+
+
+def can_view(c):
+    return can('contracts.view_all') or (can('contracts.view_own') and owns(c))
+
+
+def can_edit(c):
+    return can('contracts.edit_all') or (can('contracts.edit_own') and owns(c))
+
+
+def can_delete(c):
+    return can('contracts.delete_all') or (can('contracts.delete_own') and owns(c))
+
+
+def require_contract(id_, mode='view'):
+    c = get_db().get_contract(id_)
+    if not c:
+        abort(404)
+    ok = {'view': can_view, 'edit': can_edit, 'delete': can_delete}[mode](c)
+    if not ok:
+        label = {'view': 'عرض', 'edit': 'تعديل', 'delete': 'حذف'}[mode]
+        abort(403) if False else None
+        return None, (render_template('error.html', page='',
+                                      error=f'ليست لديك صلاحية {label} هذا التعاقد',
+                                      title='صلاحية غير كافية'), 403)
+    return c, None
+
+
+def my_contracts(q=None):
+    if can('contracts.view_all'):
+        return get_db().list_contracts(q)
+    if can('contracts.view_own'):
+        return get_db().list_contracts(q, created_by=current_user()['id'])
+    return []
+
+
+# ---------------------------------------------------------------- auth hooks
+@app.before_request
+def _before():
+    if request.endpoint == 'static':
+        return
+    try:
+        ensure_bootstrap()
+    except Exception:
+        pass
+    auth.load_current_user()
+
+
+@app.template_filter('dt')
+def _fmt_dt(v):
+    """تنسيق التواريخ بتوقيت الرياض."""
+    if not v:
+        return '—'
+    d = auth._parse_dt(v)
+    if not d:
+        return str(v)[:16].replace('T', ' ')
+    return d.astimezone(timezone(timedelta(hours=3))).strftime('%Y-%m-%d %H:%M')
+
+
+@app.template_filter('dshort')
+def _fmt_dshort(v):
+    if not v:
+        return ''
+    d = auth._parse_dt(v)
+    if not d:
+        return str(v)[:10]
+    return d.astimezone(timezone(timedelta(hours=3))).strftime('%Y-%m-%d')
+
+
+# ---------------------------------------------------------------- audit helpers
+ACTION_LABELS = {
+    'auth.login': 'تسجيل دخول', 'auth.logout': 'تسجيل خروج',
+    'account.update': 'تعديل بيانات الحساب', 'account.password': 'تغيير كلمة المرور',
+    'contracts.create': 'إنشاء تعاقد', 'contracts.update': 'تعديل تعاقد',
+    'contracts.delete': 'حذف تعاقد', 'contracts.pdf': 'تصدير PDF',
+    'contracts.duplicate': 'نسخ تعاقد', 'contracts.bulk_revoke': 'إلغاء تعاقدات مستخدم',
+    'contracts.bulk_delete': 'حذف تعاقدات مستخدم',
+    'users.create': 'إنشاء مستخدم', 'users.update': 'تعديل مستخدم',
+    'users.delete': 'حذف مستخدم', 'users.reset_password': 'إعادة تعيين كلمة المرور',
+    'users.activate': 'تفعيل حساب', 'users.deactivate': 'تعطيل حساب',
+    'permissions.update': 'تعديل الصلاحيات', 'settings.update': 'تعديل الإعدادات',
+    'system.bootstrap': 'تهيئة النظام',
+}
+DETAIL_LABELS = {
+    'email': 'البريد', 'new_email': 'البريد الجديد', 'role': 'الدور',
+    'permissions': 'الصلاحيات', 'permissions_added': 'صلاحيات مضافة',
+    'permissions_removed': 'صلاحيات مسحوبة', 'is_active': 'نشط',
+    'contract_limit': 'حد التعاقدات', 'expires_at': 'الانتهاء',
+    'permit_no': 'رقم التصريح', 'worker_name': 'العامل', 'fields': 'الحقول المعدّلة',
+    'before': 'القيم السابقة', 'affected': 'عدد التعاقدات', 'name': 'الاسم',
+    'full_name': 'الاسم', 'from': 'من', 'note': 'ملاحظة',
+    'org_name': 'اسم المنصة', 'verify_domain': 'نطاق التحقق',
+    'default_provider_name': 'المقدم الافتراضي', 'default_provider_no': 'رقم المقدم',
+    'default_site': 'الموقع الافتراضي',
+}
+
+
+def action_label(a):
+    return ACTION_LABELS.get(a, a)
+
+
+def details_text(d):
+    if not d:
+        return '—'
+    if not isinstance(d, dict):
+        return str(d)[:160]
+    parts = []
+    for k, v in d.items():
+        if v in (None, '', [], {}):
+            continue
+        if isinstance(v, list):
+            if k in ('permissions', 'permissions_added', 'permissions_removed'):
+                v = '، '.join(PERMISSION_MAP[x]['label'] for x in v if x in PERMISSION_MAP) or '—'
+            else:
+                v = '، '.join(str(x) for x in v)
+        elif isinstance(v, dict):
+            v = '، '.join(f'{DETAIL_LABELS.get(kk, kk)}: {vv}' for kk, vv in v.items())
+        elif isinstance(v, bool):
+            v = 'نعم' if v else 'لا'
+        parts.append(f'{DETAIL_LABELS.get(k, k)}: {v}')
+    return ' · '.join(parts)[:220] or '—'
+
+
+@app.context_processor
+def inject_globals():
+    u = current_user()
+    return dict(
+        current_year=date.today().year, today=date.today(),
+        me=u, can=can, can_any=can_any,
+        role_label=ROLE_LABELS.get(u['role'], '') if u else '',
+        me_name=display_name(u), me_initials=auth.initials(u) if u else '',
+        permission_catalog=PERMISSION_CATALOG, catalog_by_category=catalog_by_category(),
+        permission_map=PERMISSION_MAP, perm_count=len(permissions()),
+        action_label=action_label, details_text=details_text,
+    )
+
+
+# ---------------------------------------------------------------- auth routes
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if current_user():
+        return redirect(url_for('dashboard'))
+    err = None
+    email = ''
+    if request.method == 'POST':
+        email = auth.normalize_email(request.form.get('email'))
+        pw = request.form.get('password') or ''
+        if not email or not pw:
+            err = 'يرجى إدخال البريد الإلكتروني وكلمة المرور'
+        else:
+            try:
+                user = store.get_user_by_email(email)
+            except Exception as e:
+                return render_template('login.html', error='تعذّر الوصول إلى نظام الحسابات. '
+                                       'تأكد من إعداد قاعدة البيانات.', email=email), 503
+            if not user or not auth.verify_password(pw, user.get('password_hash')):
+                err = 'البريد الإلكتروني أو كلمة المرور غير صحيحة'
+            elif not user.get('is_active'):
+                err = 'هذا الحساب معطّل. يرجى التواصل مع مدير المنصة.'
+            elif account_expired(user):
+                err = 'انتهت صلاحية هذا الحساب. يرجى التواصل مع مدير المنصة.'
+            else:
+                token, _exp = auth.start_session(user)
+                g.user = user
+                g.perms = set(PERMISSION_KEYS) if is_owner(user) else set(store.get_permissions(user['id']))
+                log_audit('auth.login', 'user', user['id'], {'email': email})
+                nxt = request.args.get('next') or request.form.get('next')
+                resp = redirect(nxt if nxt and nxt.startswith('/') else url_for('dashboard'))
+                auth.set_session_cookie(resp, token)
+                flash(f'أهلاً بك، {display_name(user)}', 'success')
+                return resp
+    return render_template('login.html', error=err, email=email)
+
+
+@app.route('/logout')
+@app.route('/logout', methods=['POST'])
+def logout():
+    th = getattr(g, 'session_token', None)
+    u = current_user()
+    if th:
+        try:
+            store.delete_session(th)
+        except Exception:
+            pass
+    if u:
+        log_audit('auth.logout', 'user', u['id'], {'email': u['email']})
+    resp = redirect(url_for('login'))
+    auth.clear_session_cookie(resp)
+    return resp
+
+
+@app.route('/account', methods=['GET', 'POST'])
+@login_required
+def account():
+    u = current_user()
+    errors = {}
+    if request.method == 'POST':
+        action = request.form.get('action') or 'profile'
+        if action == 'profile':
+            full_name = (request.form.get('full_name') or '').strip()
+            email = auth.normalize_email(request.form.get('email'))
+            if not full_name:
+                errors['full_name'] = 'الاسم مطلوب'
+            if not auth.is_valid_email(email):
+                errors['email'] = 'صيغة البريد الإلكتروني غير صحيحة'
+            dup = store.get_user_by_email(email) if email else None
+            if dup and int(dup['id']) != int(u['id']):
+                errors['email'] = 'البريد الإلكتروني مستخدم مسبقاً'
+            if not errors:
+                store.update_user(u['id'], {'full_name': full_name, 'email': email})
+                log_audit('account.update', 'user', u['id'],
+                          {'email': u['email'], 'new_email': email, 'name': full_name})
+                flash('تم تحديث بيانات الحساب', 'success')
+                return redirect(url_for('account'))
+        elif action == 'password':
+            cur = request.form.get('current_password') or ''
+            new = request.form.get('new_password') or ''
+            rep = request.form.get('confirm_password') or ''
+            if not auth.verify_password(cur, u.get('password_hash')):
+                errors['current_password'] = 'كلمة المرور الحالية غير صحيحة'
+            if not auth.is_valid_password(new):
+                errors['new_password'] = 'كلمة المرور الجديدة يجب ألا تقل عن 6 محرفاً'
+            elif new != rep:
+                errors['confirm_password'] = 'كلمتا المرور غير متطابقتين'
+            if not errors:
+                store.update_user(u['id'], {'password_hash': auth.hash_password(new)})
+                log_audit('account.password', 'user', u['id'], {'email': u['email']})
+                flash('تم تغيير كلمة المرور — الجلسات الأخرى أُنهيت', 'success')
+                th = getattr(g, 'session_token', None)
+                try:
+                    store.delete_sessions_for_user(u['id'], keep_hash=th)
+                except Exception:
+                    pass
+                return redirect(url_for('account'))
+    sessions = []
+    try:
+        sessions = store.active_sessions_count(u['id'])
+    except Exception:
+        pass
+    return render_template('account.html', page='account', errors=errors,
+                           sessions=sessions, my_role=ROLE_LABELS.get(u['role'], ''),
+                           my_perms=sorted(permissions()))
+
+
+# ---------------------------------------------------------------- contracts
 @app.route('/')
+@login_required
 def dashboard():
     db = get_db()
     q = (request.args.get('q') or '').strip()
     st = request.args.get('status') or 'all'
+    if not can_any('contracts.view_all', 'contracts.view_own'):
+        return render_template('error.html', page='',
+                               error='ليست لديك صلاحية عرض التعاقدات. تواصل مع مدير المنصة.',
+                               title='صلاحية غير كافية'), 403
     try:
-        contracts = db.list_contracts(q or None)
+        contracts = my_contracts(q or None)
     except Exception as e:
         return render_template('error.html', page='', error=str(e)), 500
     for c in contracts:
         c['status'], c['status_label'] = status_of(c)
+        c['is_mine'] = owns(c)
     stats = {
         'total': len(contracts),
         'active': sum(1 for c in contracts if c['status'] in ('active', 'soon')),
@@ -149,11 +414,25 @@ def dashboard():
         contracts = [c for c in contracts if c['status'] == st]
     return render_template('dashboard.html', page='dashboard', contracts=contracts,
                            stats=stats, settings=settings(), q=q, st=st,
-                           backend=db.backend)
+                           backend=db.backend, scope='all' if can('contracts.view_all') else 'own')
 
 
 @app.route('/contracts/new', methods=['GET', 'POST'])
+@permission_required('contracts.create')
 def new_contract():
+    u = current_user()
+    if account_expired(u):
+        return render_template('error.html', page='', error='انتهت صلاحية حسابك، لا يمكنك إنشاء تعاقدات جديدة',
+                               title='حساب منتهي'), 403
+    used = 0
+    try:
+        used = get_db().count_by_user(u['id'])
+    except Exception:
+        pass
+    ok, msg = auth.certificate_quota(u, used)
+    if not ok:
+        return render_template('error.html', page='', error=msg, title='تجاوز الحد'), 403
+
     s = settings()
     db = get_db()
     if request.method == 'POST':
@@ -164,7 +443,12 @@ def new_contract():
         if errors:
             return render_template('form.html', page='new', c=data, errors=errors,
                                    settings=s, mode='new'), 422
+        data['created_by'] = u['id']
+        data['created_by_name'] = display_name(u)
+        data['created_by_email'] = u['email']
         row = db.create_contract(data)
+        log_audit('contracts.create', 'contract', row['id'],
+                  {'permit_no': data['permit_no'], 'worker_name': data['worker_name']})
         flash('تم إنشاء التعاقد بنجاح — يمكنك الآن تحميل المستند', 'success')
         return redirect(url_for('view_contract', id_=row['id']))
 
@@ -181,15 +465,17 @@ def new_contract():
         'start_date': today.isoformat(), 'end_date': next_year.isoformat(),
         'site': s['default_site'],
     }
-    return render_template('form.html', page='new', c=c, errors={}, settings=s, mode='new')
+    return render_template('form.html', page='new', c=c, errors={}, settings=s, mode='new',
+                           quota_used=used, quota=(u.get('contract_limit')))
 
 
 @app.route('/contracts/<int:id_>/edit', methods=['GET', 'POST'])
+@login_required
 def edit_contract(id_):
+    c, err = require_contract(id_, 'edit')
+    if err:
+        return err
     db = get_db()
-    c = db.get_contract(id_)
-    if not c:
-        abort(404)
     s = settings()
     if request.method == 'POST':
         data = payload(request.form)
@@ -200,75 +486,100 @@ def edit_contract(id_):
             data['id'] = id_
             return render_template('form.html', page='edit', c=data, errors=errors,
                                    settings=s, mode='edit'), 422
+        changed = {k: v for k, v in data.items() if str(c.get(k)) != str(v)}
         db.update_contract(id_, data)
+        log_audit('contracts.update', 'contract', id_,
+                  {'permit_no': data['permit_no'], 'fields': list(changed.keys()),
+                   'before': {k: c.get(k) for k in changed}})
         flash('تم تحديث التعاقد بنجاح', 'success')
         return redirect(url_for('view_contract', id_=id_))
     return render_template('form.html', page='edit', c=c, errors={}, settings=s, mode='edit')
 
 
 @app.route('/contracts/<int:id_>')
+@login_required
 def view_contract(id_):
-    c = get_db().get_contract(id_)
-    if not c:
-        abort(404)
+    c, err = require_contract(id_, 'view')
+    if err:
+        return err
     c['status'], c['status_label'] = status_of(c)
-    return render_template('view.html', page='dashboard', c=c, settings=settings())
+    c['is_mine'] = owns(c)
+    return render_template('view.html', page='dashboard', c=c, settings=settings(),
+                           can_edit=can_edit(c), can_del=can_delete(c))
 
 
 @app.route('/contracts/<int:id_>/delete', methods=['POST'])
+@login_required
 def delete_contract(id_):
-    db = get_db()
-    c = db.get_contract(id_)
-    if not c:
-        abort(404)
-    db.delete_contract(id_)
+    c, err = require_contract(id_, 'delete')
+    if err:
+        return err
+    get_db().delete_contract(id_)
+    log_audit('contracts.delete', 'contract', id_,
+              {'permit_no': c['permit_no'], 'worker_name': c['worker_name']})
     flash(f'تم حذف التعاقد {c["permit_no"]}', 'success')
     return redirect(url_for('dashboard'))
 
 
 @app.route('/contracts/<int:id_>/duplicate', methods=['POST'])
+@permission_required('contracts.create')
 def duplicate_contract(id_):
+    c, err = require_contract(id_, 'view')
+    if err:
+        return err
+    u = current_user()
     db = get_db()
-    c = db.get_contract(id_)
-    if not c:
-        abort(404)
     data = {k: c[k] for k in FIELDS}
     data['permit_no'] = gen_permit_no()
+    data['created_by'] = u['id']
+    data['created_by_name'] = display_name(u)
+    data['created_by_email'] = u['email']
     row = db.create_contract(data)
+    log_audit('contracts.duplicate', 'contract', row['id'],
+              {'from': c['permit_no'], 'permit_no': data['permit_no']})
     flash('تم إنشاء نسخة جديدة من التعاقد', 'success')
     return redirect(url_for('edit_contract', id_=row['id']))
 
 
 @app.route('/contracts/<int:id_>/print')
+@login_required
 def print_contract(id_):
-    c = get_db().get_contract(id_)
-    if not c:
-        abort(404)
+    c, err = require_contract(id_, 'view')
+    if err:
+        return err
+    if not can('contracts.print'):
+        return render_template('error.html', page='', error='ليست لديك صلاحية طباعة الوثائق',
+                               title='صلاحية غير كافية'), 403
     auto = request.args.get('auto', '1') != '0'
     return render_template('contract_doc.html', c=doc_context(c), mode='print',
                            auto_print=auto, assets=url_for('static', filename=''))
 
 
 @app.route('/contracts/<int:id_>/embed')
+@login_required
 def embed_contract(id_):
-    c = get_db().get_contract(id_)
-    if not c:
-        abort(404)
+    c, err = require_contract(id_, 'view')
+    if err:
+        return err
     return render_template('contract_doc.html', c=doc_context(c), mode='embed',
                            auto_print=False, assets=url_for('static', filename=''))
 
 
 @app.route('/contracts/<int:id_>/pdf')
+@login_required
 def pdf_contract(id_):
     """توليد PDF مطابق للنموذج — fpdf2 + HarfBuzz (بدون أي مكتبات نظام)."""
-    c = get_db().get_contract(id_)
-    if not c:
-        abort(404)
+    c, err = require_contract(id_, 'view')
+    if err:
+        return err
+    if not can('contracts.export'):
+        abort(403)
     ctx = doc_context(c)
     try:
         raw = build_pdf(ctx, qr_bytes(verify_link(c['permit_no'])))
     except Exception:
         return redirect(url_for('print_contract', id_=id_, auto=0))
+    log_audit('contracts.pdf', 'contract', id_, {'permit_no': c['permit_no']})
     buf = io.BytesIO(raw)
     buf.seek(0)
     return send_file(buf, mimetype='application/pdf', as_attachment=True,
@@ -276,6 +587,7 @@ def pdf_contract(id_):
 
 
 @app.route('/contracts/preview', methods=['POST'])
+@login_required
 def preview():
     raw = request.get_json(silent=True) if request.is_json else request.form.to_dict()
     data = {k: (raw.get(k) or '').strip() for k in FIELDS}
@@ -284,26 +596,392 @@ def preview():
                            auto_print=False, assets=url_for('static', filename=''))
 
 
-@app.route('/verify/<permit_no>')
-def verify(permit_no):
-    c = get_db().get_by_permit(permit_no)
-    status = status_of(c) if c else ('unknown', 'غير موجود')
-    return render_template('verify.html', c=c, status=status, settings=settings())
-
-
+# ---------------------------------------------------------------- settings
 @app.route('/settings', methods=['GET', 'POST'])
+@permission_required('settings.manage')
 def settings_page():
     db = get_db()
     if request.method == 'POST':
+        changes = {}
         for k in ('org_name', 'verify_domain', 'default_provider_name',
                   'default_provider_no', 'default_site'):
             v = (request.form.get(k) or '').strip()
             if v:
                 db.save_setting(k, v)
+                changes[k] = v
+        log_audit('settings.update', 'settings', '', changes)
         flash('تم حفظ الإعدادات', 'success')
         return redirect(url_for('settings_page'))
     return render_template('settings.html', page='settings', settings=settings(),
                            backend=db.backend)
+
+
+# ---------------------------------------------------------------- admin
+@app.route('/admin')
+@login_required
+def admin_page():
+    if not can_any('users.view', 'permissions.view', 'audit.view'):
+        return render_template('error.html', page='',
+                               error='ليست لديك صلاحية الوصول إلى لوحة الإدارة',
+                               title='صلاحية غير كافية'), 403
+    tab = request.args.get('tab') or ('users' if can('users.view') or can('users.list') else 'audit')
+    users, perms_map, counts = [], {}, {}
+    try:
+        if can('users.view'):
+            users = store.list_users()
+            perms_map = store.all_permissions_map()
+            counts = get_db().counts_by_user()
+    except Exception as e:
+        flash(f'تعذّر تحميل المستخدمين: {e}', 'error')
+    for u in users:
+        u.pop('password_hash', None)
+        u['permissions'] = perms_map.get(int(u['id']), [])
+        u['is_owner'] = u.get('role') == 'owner'
+        u['is_expired'] = account_expired(u)
+        u['contract_count'] = counts.get(int(u['id']), 0)
+        u['created_by_name'] = ''
+    by_id = {int(u['id']): u for u in users}
+    for u in users:
+        cb = u.get('created_by')
+        u['created_by_name'] = by_id[int(cb)]['full_name'] if cb and int(cb) in by_id else '—'
+
+    audit = []
+    if can('audit.view') and tab == 'audit':
+        aq = (request.args.get('aq') or '').strip()
+        aact = (request.args.get('action') or '').strip()
+        try:
+            audit = store.list_audit(limit=300, q=aq or None, action=aact or None)
+        except Exception as e:
+            flash(f'تعذّر تحميل سجل النشاط: {e}', 'error')
+
+    stats = {
+        'total': len(users),
+        'active': sum(1 for u in users if u.get('is_active') and not u['is_expired']),
+        'inactive': sum(1 for u in users if not u.get('is_active')),
+        'expired': sum(1 for u in users if u['is_expired']),
+        'suspended_contracts': 0,
+    }
+    audit_count = 0
+    try:
+        audit_count = store.count_audit()
+    except Exception:
+        pass
+    return render_template('admin.html', page='admin', users=users, audit=audit,
+                           stats=stats, tab=tab, audit_count=audit_count,
+                           aq=(request.args.get('aq') or ''), aact=(request.args.get('action') or ''),
+                           role_presets=ROLE_PRESETS, roles=ROLE_LABELS,
+                           max_perms=len(PERMISSION_KEYS))
+
+
+@app.route('/api/admin/users', methods=['GET', 'POST'])
+@login_required
+def api_users():
+    if request.method == 'GET':
+        if not can('users.view'):
+            return jsonify(error='ليست لديك صلاحية عرض المستخدمين', code='FORBIDDEN'), 403
+        users = store.list_users()
+        pm = store.all_permissions_map()
+        counts = get_db().counts_by_user()
+        out = []
+        for u in users:
+            u = dict(u)
+            u.pop('password_hash', None)
+            u['permissions'] = pm.get(int(u['id']), [])
+            u['contract_count'] = counts.get(int(u['id']), 0)
+            out.append(u)
+        return jsonify(out)
+
+    # --- إنشاء مستخدم
+    if not can('users.create'):
+        return jsonify(error='ليست لديك صلاحية إنشاء مستخدمين جدد', code='FORBIDDEN',
+                       required='users.create'), 403
+    body = request.get_json(silent=True) or {}
+    email = auth.normalize_email(body.get('email'))
+    password = body.get('password') or ''
+    full_name = (body.get('full_name') or '').strip()
+    role = body.get('role') if body.get('role') in ('admin', 'user') else 'user'
+    field_errors = {}
+    if not auth.is_valid_email(email):
+        field_errors['email'] = 'صيغة البريد الإلكتروني غير صحيحة'
+    if not auth.is_valid_password(password):
+        field_errors['password'] = 'كلمة المرور يجب ألا تقل عن 6 محرفاً'
+    if not full_name:
+        field_errors['full_name'] = 'الاسم الكامل مطلوب'
+    limit, lerr = _parse_limit(body.get('contract_limit'))
+    field_errors.update(lerr)
+    expires, eerr = _parse_expiry(body)
+    field_errors.update(eerr)
+    if field_errors:
+        return jsonify(error='تحقق من المدخلات', fieldErrors=field_errors), 400
+    if store.get_user_by_email(email):
+        return jsonify(error='البريد الإلكتروني مستخدم مسبقاً',
+                       fieldErrors={'email': 'البريد الإلكتروني مستخدم مسبقاً'}), 409
+    granted = [p for p in (body.get('permissions') or []) if p in PERMISSION_MAP]
+    bad = auth.antiescalation_violations(current_user(), granted)
+    if bad:
+        labels = '، '.join(PERMISSION_MAP[p]['label'] for p in bad)
+        return jsonify(error='لا يمكنك منح صلاحيات لا تملكها بنفسك: ' + labels,
+                       code='FORBIDDEN'), 403
+    try:
+        user = store.create_user({
+            'email': email, 'password_hash': auth.hash_password(password),
+            'full_name': full_name, 'role': role,
+            'is_active': bool(body.get('is_active', True)),
+            'created_by': current_user()['id'],
+            'contract_limit': limit, 'expires_at': expires,
+        })
+        store.set_permissions(user['id'], granted)
+    except Exception as e:
+        return jsonify(error='فشل إنشاء المستخدم: ' + str(e)), 500
+    log_audit('users.create', 'user', user['id'],
+              {'email': email, 'role': role, 'permissions': granted,
+               'contract_limit': limit, 'expires_at': expires})
+    return jsonify(ok=True, id=user['id'], message='تم إنشاء المستخدم بنجاح'), 201
+
+
+@app.route('/api/admin/users/<int:uid>', methods=['PATCH', 'DELETE'])
+@login_required
+def api_user(uid):
+    target = store.get_user(uid)
+    if not target:
+        return jsonify(error='المستخدم غير موجود', code='NOT_FOUND'), 404
+    if is_owner(target) and request.method == 'DELETE':
+        return jsonify(error='لا يمكن حذف حساب المالك', code='FORBIDDEN'), 403
+    if is_owner(target):
+        return jsonify(error='لا يمكن تعديل حساب المالك من هذه اللوحة. '
+                             'يمكن للمالك تغيير بياناته من صفحة «حسابي».',
+                       code='FORBIDDEN'), 403
+
+    if request.method == 'DELETE':
+        if not can('users.delete'):
+            return jsonify(error='ليست لديك صلاحية حذف المستخدمين', code='FORBIDDEN',
+                           required='users.delete'), 403
+        if is_self(current_user(), target):
+            return jsonify(error='لا يمكنك حذف حسابك الخاص'), 400
+        try:
+            store.delete_user(uid)
+        except Exception as e:
+            return jsonify(error='فشل حذف المستخدم: ' + str(e)), 500
+        log_audit('users.delete', 'user', uid, {'email': target['email'],
+                                                'full_name': target['full_name']})
+        return jsonify(ok=True, message='تم حذف المستخدم نهائياً')
+
+    body = request.get_json(silent=True) or {}
+    changes = {}
+    wants_perms = 'permissions' in body
+    if wants_perms and not can('permissions.manage'):
+        return jsonify(error='ليست لديك صلاحية إدارة الصلاحيات', code='FORBIDDEN',
+                       required='permissions.manage'), 403
+    if ('full_name' in body or 'email' in body or 'role' in body
+            or 'contract_limit' in body or 'expires_at' in body) and not can('users.edit'):
+        return jsonify(error='ليست لديك صلاحية تعديل بيانات المستخدمين', code='FORBIDDEN',
+                       required='users.edit'), 403
+
+    field_errors = {}
+    if 'full_name' in body:
+        name = (body.get('full_name') or '').strip()
+        if not name:
+            field_errors['full_name'] = 'الاسم الكامل مطلوب'
+        else:
+            changes['full_name'] = name
+    if 'email' in body:
+        email = auth.normalize_email(body.get('email'))
+        if not auth.is_valid_email(email):
+            field_errors['email'] = 'صيغة البريد الإلكتروني غير صحيحة'
+        else:
+            dup = store.get_user_by_email(email)
+            if dup and int(dup['id']) != uid:
+                field_errors['email'] = 'البريد الإلكتروني مستخدم مسبقاً'
+            else:
+                changes['email'] = email
+    if 'role' in body and body.get('role') in ('admin', 'user'):
+        changes['role'] = body['role']
+    if 'contract_limit' in body:
+        limit, lerr = _parse_limit(body.get('contract_limit'))
+        field_errors.update(lerr)
+        if not lerr:
+            changes['contract_limit'] = limit
+    if 'expires_at' in body:
+        expires, eerr = _parse_expiry(body)
+        field_errors.update(eerr)
+        if not eerr:
+            changes['expires_at'] = expires
+    if field_errors:
+        return jsonify(error='تحقق من المدخلات', fieldErrors=field_errors), 400
+
+    granted = None
+    if wants_perms:
+        granted = [p for p in (body.get('permissions') or []) if p in PERMISSION_MAP]
+        bad = auth.antiescalation_violations(current_user(), granted)
+        if bad:
+            labels = '، '.join(PERMISSION_MAP[p]['label'] for p in bad)
+            return jsonify(error='لا يمكنك منح صلاحيات لا تملكها بنفسك: ' + labels,
+                           code='FORBIDDEN'), 403
+
+    try:
+        if changes:
+            store.update_user(uid, changes)
+        if granted is not None:
+            before = set(store.get_permissions(uid))
+            store.set_permissions(uid, granted)
+            changes['permissions_added'] = sorted(set(granted) - before)
+            changes['permissions_removed'] = sorted(before - set(granted))
+    except Exception as e:
+        return jsonify(error='فشل تحديث المستخدم: ' + str(e)), 500
+    log_audit('users.update', 'user', uid, dict(changes, email=changes.get('email', target['email'])))
+    return jsonify(ok=True, message='تم تحديث بيانات المستخدم')
+
+
+@app.route('/api/admin/users/<int:uid>/reset-password', methods=['POST'])
+@login_required
+def api_reset_password(uid):
+    if not can('users.reset_password'):
+        return jsonify(error='ليست لديك صلاحية إعادة تعيين كلمات المرور',
+                       code='FORBIDDEN', required='users.reset_password'), 403
+    target = store.get_user(uid)
+    if not target:
+        return jsonify(error='المستخدم غير موجود', code='NOT_FOUND'), 404
+    if is_owner(target) and not is_self(current_user(), target):
+        return jsonify(error='لا يمكن إعادة تعيين كلمة مرور المالك', code='FORBIDDEN'), 403
+    body = request.get_json(silent=True) or {}
+    pw = (body.get('password') or '').strip()
+    if not auth.is_valid_password(pw):
+        return jsonify(error='كلمة المرور يجب ألا تقل عن 6 محرفاً',
+                       fieldErrors={'password': 'كلمة المرور يجب ألا تقل عن 6 محرفاً'}), 400
+    try:
+        store.update_user(uid, {'password_hash': auth.hash_password(pw)})
+        store.delete_sessions_for_user(uid)
+    except Exception as e:
+        return jsonify(error='فشل تعيين كلمة المرور: ' + str(e)), 500
+    log_audit('users.reset_password', 'user', uid, {'email': target['email']})
+    return jsonify(ok=True, message='تم تعيين كلمة مرور جديدة وإنهاء جلسات المستخدم')
+
+
+@app.route('/api/admin/users/<int:uid>/toggle-active', methods=['POST'])
+@login_required
+def api_toggle_active(uid):
+    if not can('users.activate'):
+        return jsonify(error='ليست لديك صلاحية تفعيل أو تعطيل الحسابات',
+                       code='FORBIDDEN', required='users.activate'), 403
+    target = store.get_user(uid)
+    if not target:
+        return jsonify(error='المستخدم غير موجود', code='NOT_FOUND'), 404
+    if is_owner(target):
+        return jsonify(error='لا يمكن تعطيل حساب المالك', code='FORBIDDEN'), 403
+    if is_self(current_user(), target):
+        return jsonify(error='لا يمكنك تعطيل حسابك الخاص'), 400
+    new_state = not bool(target.get('is_active'))
+    try:
+        store.update_user(uid, {'is_active': new_state})
+        if not new_state:
+            store.delete_sessions_for_user(uid)
+    except Exception as e:
+        return jsonify(error='فشل تغيير حالة الحساب: ' + str(e)), 500
+    log_audit('users.activate' if new_state else 'users.deactivate', 'user', uid,
+              {'email': target['email'], 'is_active': new_state})
+    return jsonify(ok=True, is_active=new_state,
+                   message='تم تفعيل الحساب' if new_state else 'تم تعطيل الحساب وإنهاء جلساته')
+
+
+@app.route('/api/admin/users/<int:uid>/contracts/<action>', methods=['POST'])
+@login_required
+def api_user_contracts(uid, action):
+    """إيقاف (إلغاء) أو حذف جميع تعاقدات المستخدم."""
+    if action not in ('revoke', 'delete'):
+        return jsonify(error='إجراء غير معروف'), 400
+    need = 'contracts.delete_all' if action == 'delete' else 'contracts.edit_all'
+    if not can(need):
+        return jsonify(error='ليست لديك الصلاحية المطلوبة لهذا الإجراء',
+                       code='FORBIDDEN', required=need), 403
+    target = store.get_user(uid)
+    if not target:
+        return jsonify(error='المستخدم غير موجود', code='NOT_FOUND'), 404
+    db = get_db()
+    try:
+        n = db.count_by_user(uid)
+        if action == 'delete':
+            db.bulk_delete_user_contracts(uid)
+        else:
+            yesterday = (date.today() - timedelta(days=1)).isoformat()
+            db.bulk_update_user_contracts(uid, {'end_date': yesterday})
+    except Exception as e:
+        return jsonify(error='فشل تنفيذ الإجراء: ' + str(e)), 500
+    log_audit(f'contracts.bulk_{action}', 'user', uid,
+              {'email': target['email'], 'affected': n})
+    msg = (f'تم حذف {n} تعاقداً' if action == 'delete' else f'تم إلغاء {n} تعاقداً (انتهاء فوري)')
+    return jsonify(ok=True, affected=n, message=msg)
+
+
+@app.route('/api/admin/audit')
+@login_required
+def api_audit():
+    if not can('audit.view'):
+        return jsonify(error='ليست لديك صلاحية عرض سجل النشاط', code='FORBIDDEN',
+                       required='audit.view'), 403
+    try:
+        limit = min(int(request.args.get('limit') or 100), 500)
+    except ValueError:
+        limit = 100
+    rows = store.list_audit(limit=limit, q=(request.args.get('q') or '').strip() or None,
+                            action=(request.args.get('action') or '').strip() or None)
+    return jsonify(rows)
+
+
+def _parse_limit(raw):
+    if raw in (None, '', 'null'):
+        return None, {}
+    try:
+        v = int(raw)
+        if v < 0:
+            raise ValueError
+        return v, {}
+    except (TypeError, ValueError):
+        return None, {'contract_limit': 'الحد يجب أن يكون رقماً صحيحاً أو فارغاً (بلا حد)'}
+
+
+def _parse_expiry(body):
+    """expires_at مباشرة أو validity_months أو preset."""
+    import calendar
+    if 'expires_at' in body and body.get('expires_at') in (None, '', 'null'):
+        return None, {}
+    if body.get('expires_at'):
+        try:
+            d = datetime.fromisoformat(str(body['expires_at'])[:19])
+            return d.replace(tzinfo=timezone.utc).isoformat(), {}
+        except Exception:
+            return None, {'expires_at': 'صيغة تاريخ الانتهاء غير صحيحة'}
+    months = body.get('validity_months')
+    if months in (None, '', 'null'):
+        return None, {}
+    try:
+        m = int(months)
+        now = datetime.now(timezone.utc)
+        month = now.month - 1 + m
+        year = now.year + month // 12
+        month = month % 12 + 1
+        day = min(now.day, calendar.monthrange(year, month)[1])
+        return now.replace(year=year, month=month, day=day).isoformat(), {}
+    except Exception:
+        return None, {'expires_at': 'مدة الصلاحية غير صحيحة'}
+
+
+@app.route('/api/me')
+@login_required
+def api_me():
+    u = current_user()
+    return jsonify(id=u['id'], email=u['email'], full_name=u['full_name'],
+                   role=u['role'], is_active=u['is_active'],
+                   is_owner=is_owner(u), permissions=sorted(permissions()),
+                   contract_limit=u.get('contract_limit'),
+                   expires_at=u.get('expires_at'))
+
+
+# ---------------------------------------------------------------- public
+@app.route('/verify/<permit_no>')
+def verify(permit_no):
+    c = get_db().get_by_permit(permit_no)
+    status = status_of(c) if c else ('unknown', 'غير موجود')
+    return render_template('verify.html', c=c, status=status, settings=settings())
 
 
 @app.route('/api/qr/<permit_no>.png')
@@ -319,8 +997,14 @@ def health():
     db = get_db()
     try:
         n = db.count()
-        return jsonify(status='ok', backend=db.backend, contracts=n,
-                       time=datetime.utcnow().isoformat() + 'Z')
+        info = dict(status='ok', backend=db.backend, contracts=n,
+                    time=datetime.now(timezone.utc).isoformat())
+        try:
+            info['users'] = store.count_users()
+            info['auth'] = 'on'
+        except Exception:
+            info['auth'] = 'unavailable'
+        return jsonify(info)
     except Exception as e:
         return jsonify(status='error', backend=db.backend, detail=str(e)), 500
 
@@ -330,14 +1014,15 @@ def not_found(e):
     return render_template('404.html', page=''), 404
 
 
+@app.errorhandler(403)
+def forbidden(e):
+    return render_template('error.html', page='', error='ليست لديك صلاحية للوصول إلى هذه الصفحة',
+                           title='صلاحية غير كافية'), 403
+
+
 @app.errorhandler(500)
 def server_error(e):
     return render_template('error.html', page='', error='حدث خطأ غير متوقع'), 500
-
-
-@app.context_processor
-def inject_globals():
-    return dict(current_year=date.today().year, today=date.today())
 
 
 if __name__ == '__main__':

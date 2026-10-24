@@ -21,31 +21,47 @@
 
     <nav class="nav">
       <div class="nav-title">الرئيسية</div>
+      {% if can_any('contracts.view_all','contracts.view_own') %}
       <a href="{{ url_for('dashboard') }}" class="{{ 'active' if page=='dashboard' }}">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/><rect x="3" y="14" width="7" height="7" rx="2"/><rect x="14" y="14" width="7" height="7" rx="2"/></svg>
         لوحة التحكم
       </a>
-      <a href="{{ url_for('dashboard') }}#contracts" class="{{ 'active' if page=='contracts' }}">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M8 3h8l4 4v14H4V3h4z" transform="translate(0 -1)"/><path d="M8 12h8M8 16h5"/></svg>
-        التعاقدات
-      </a>
+      {% endif %}
+      {% if can('contracts.create') %}
       <a href="{{ url_for('new_contract') }}" class="{{ 'active' if page=='new' }}">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg>
         إنشاء تعاقد
       </a>
+      {% endif %}
+
+      {% if can_any('users.view','permissions.view','audit.view') %}
+      <div class="nav-title">الإدارة</div>
+      <a href="{{ url_for('admin_page', tab='users') }}" class="{{ 'active' if page=='admin' }}">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="9" cy="8" r="3.4"/><path d="M2.6 20c.7-3.4 3.3-5.4 6.4-5.4S15 16.6 15.7 20"/><path d="M17 5.2a3.4 3.4 0 0 1 0 6.6M18.5 20c-.2-1.2-.6-2.3-1.2-3.2"/></svg>
+        المستخدمون والصلاحيات
+      </a>
+      {% if can('audit.view') %}
+      <a href="{{ url_for('admin_page', tab='audit') }}" class="{{ 'active' if page=='audit' }}">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 8v5l3 2"/><circle cx="12" cy="12" r="9"/></svg>
+        سجل النشاط
+      </a>
+      {% endif %}
+      {% endif %}
 
       <div class="nav-title">أدوات</div>
+      {% if can('settings.manage') %}
       <a href="{{ url_for('settings_page') }}" class="{{ 'active' if page=='settings' }}">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-2.9 1.2V21a2 2 0 1 1-4 0v-.1A1.7 1.7 0 0 0 7 19.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1A1.7 1.7 0 0 0 3 13.6H3a2 2 0 1 1 0-4h.1A1.7 1.7 0 0 0 4.7 7l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1A1.7 1.7 0 0 0 10 2.9V3a2 2 0 1 1 4 0v.1A1.7 1.7 0 0 0 17 4.7l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0 1.2 2.9z"/></svg>
         الإعدادات
       </a>
+      {% endif %}
+      <a href="{{ url_for('account') }}" class="{{ 'active' if page=='account' }}">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="3.6"/><path d="M4.5 20c.8-3.8 3.8-6 7.5-6s6.7 2.2 7.5 6"/></svg>
+        حسابي
+      </a>
       <a href="{{ url_for('verify', permit_no='TQ101515442') }}">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3l7 3v6c0 4.5-3 7.6-7 9-4-1.4-7-4.5-7-9V6l7-3z"/><path d="M9 12l2 2 4-4"/></svg>
         التحقق من تصريح
-      </a>
-      <a href="{{ url_for('health') }}" target="_blank">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 12h4l2-6 4 12 2-6h6"/></svg>
-        حالة النظام
       </a>
     </nav>
 
@@ -63,14 +79,35 @@
       </div>
       <div class="spacer"></div>
       {% block topactions %}{% endblock %}
-      <div class="avatar">ع</div>
+
+      <div class="user-menu" id="userMenu">
+        <button class="avatar-btn" type="button" onclick="toggleUserMenu(event)" aria-haspopup="true">
+          <span class="avatar">{{ me_initials }}</span>
+          <span class="who">
+            <b>{{ me_name }}</b>
+            <small>{{ role_label }}{% if me and me.is_active is sameas false %} · معطّل{% endif %}</small>
+          </span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+        </button>
+        <div class="user-drop">
+          <div class="ud-head">
+            <b>{{ me_name }}</b>
+            <small dir="ltr">{{ me.email if me }}</small>
+            <span class="badge {{ 'b-owner' if me and me.role=='owner' else ('b-admin' if me and me.role=='admin' else 'b-user') }}">{{ role_label }}</span>
+            <span class="ud-meta">{{ perm_count }} صلاحية فعّالة</span>
+          </div>
+          <a href="{{ url_for('account') }}">حسابي وكلمة المرور</a>
+          {% if can_any('users.view','audit.view') %}<a href="{{ url_for('admin_page') }}">لوحة الإدارة</a>{% endif %}
+          <a href="{{ url_for('logout') }}" class="danger">تسجيل الخروج</a>
+        </div>
+      </div>
     </header>
 
     <main class="content">
       {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
           {% for cat, m in messages %}
-            <div class="flash">{{ m }}</div>
+            <div class="flash {{ cat }}">{{ m }}</div>
           {% endfor %}
         {% endif %}
       {% endwith %}
@@ -81,14 +118,28 @@
 
 <div class="toast-wrap" id="toasts"></div>
 <script>
-  window.AJEER = { today: '{{ today.isoformat() }}' };
-  function toast(msg){
+  window.AJEER = { today: '{{ today.isoformat() }}', me: {{ (me.id if me else 0)|tojson }} };
+  function toast(msg, kind){
     var w = document.getElementById('toasts');
     var d = document.createElement('div');
-    d.className = 'toast'; d.textContent = msg; w.appendChild(d);
-    setTimeout(function(){ d.style.opacity='0'; d.style.transform='translateY(6px)'; d.style.transition='.3s'; }, 2200);
-    setTimeout(function(){ d.remove(); }, 2600);
+    d.className = 'toast' + (kind === 'error' ? ' err' : '');
+    d.textContent = msg; w.appendChild(d);
+    setTimeout(function(){ d.style.opacity='0'; d.style.transform='translateY(6px)'; d.style.transition='.3s'; }, 2600);
+    setTimeout(function(){ d.remove(); }, 3000);
   }
+  function toggleUserMenu(e){
+    e.stopPropagation();
+    document.getElementById('userMenu').classList.toggle('open');
+  }
+  document.addEventListener('click', function(){
+    var m = document.getElementById('userMenu'); if (m) m.classList.remove('open');
+  });
+  document.addEventListener('keydown', function(e){
+    if (e.key === 'Escape') {
+      var m = document.getElementById('userMenu'); if (m) m.classList.remove('open');
+      document.querySelectorAll('.modal.open').forEach(function(x){ x.classList.remove('open'); });
+    }
+  });
   /* يجعل أي iframe للمستند يملأ عرض الحاوية بنسبة صحيحة */
   function fitDocFrame(frame){
     var stage = frame.parentElement;

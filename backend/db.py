@@ -75,8 +75,10 @@ class SupabaseDB:
     backend = 'supabase'
 
     # ---- contracts ----
-    def list_contracts(self, q=None):
+    def list_contracts(self, q=None, created_by=None):
         params = {'select': '*', 'order': 'id.desc'}
+        if created_by is not None:
+            params['created_by'] = f'eq.{created_by}'
         if q:
             safe = q.replace(',', ' ').replace('(', ' ').replace(')', ' ')
             params['or'] = (f'(permit_no.ilike.*{safe}*,worker_name.ilike.*{safe}*,'
@@ -102,6 +104,9 @@ class SupabaseDB:
     def create_contract(self, data):
         now = datetime.utcnow().isoformat()
         payload = {k: data[k] for k in FIELDS}
+        for k in ('created_by', 'created_by_name', 'created_by_email'):
+            if data.get(k) is not None:
+                payload[k] = data[k]
         payload['created_at'] = now
         payload['updated_at'] = now
         rows = _rest('contracts', method='POST', body=payload,
@@ -122,6 +127,29 @@ class SupabaseDB:
     def count(self):
         rows = _rest('contracts', params={'select': 'id'}) or []
         return len(rows)
+
+    def count_by_user(self, uid):
+        rows = _rest('contracts', params={'select': 'id', 'created_by': f'eq.{uid}'}) or []
+        return len(rows)
+
+    def counts_by_user(self):
+        rows = _rest('contracts', params={'select': 'created_by'}) or []
+        out = {}
+        for r in rows:
+            k = r.get('created_by')
+            if k is not None:
+                out[int(k)] = out.get(int(k), 0) + 1
+        return out
+
+    def bulk_update_user_contracts(self, uid, fields):
+        payload = dict(fields)
+        payload['updated_at'] = datetime.utcnow().isoformat()
+        return _rest('contracts', method='PATCH', params={'created_by': f'eq.{uid}'},
+                     body=payload, prefer='return=minimal')
+
+    def bulk_delete_user_contracts(self, uid):
+        return _rest('contracts', method='DELETE', params={'created_by': f'eq.{uid}'},
+                     prefer='return=minimal')
 
     # ---- settings ----
     def get_settings(self):
@@ -157,7 +185,8 @@ CREATE TABLE IF NOT EXISTS contracts (
     profession TEXT NOT NULL, nationality TEXT NOT NULL, provider_name TEXT NOT NULL,
     provider_no TEXT NOT NULL, beneficiary_name TEXT NOT NULL, beneficiary_no TEXT NOT NULL,
     description TEXT NOT NULL, start_date TEXT NOT NULL, end_date TEXT NOT NULL,
-    site TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
+    site TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
+    created_by INTEGER, created_by_name TEXT, created_by_email TEXT);
 CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT);
 """
 
@@ -170,6 +199,11 @@ class SqliteDB:
         self.con = sqlite3.connect(DB_PATH, check_same_thread=False)
         self.con.row_factory = sqlite3.Row
         self.con.executescript(SCHEMA)
+        cols = {r[1] for r in self.con.execute('PRAGMA table_info(contracts)').fetchall()}
+        for col, typ in (('created_by', 'INTEGER'), ('created_by_name', 'TEXT'),
+                         ('created_by_email', 'TEXT')):
+            if col not in cols:
+                self.con.execute(f'ALTER TABLE contracts ADD COLUMN {col} {typ}')
         for k, v in DEFAULT_SETTINGS.items():
             self.con.execute('INSERT OR IGNORE INTO settings(key,value) VALUES(?,?)', (k, v))
         if self.con.execute('SELECT COUNT(*) FROM contracts').fetchone()[0] == 0:
@@ -181,13 +215,18 @@ class SqliteDB:
                 [r + (now, now) for r in SEED])
         self.con.commit()
 
-    def list_contracts(self, q=None):
+    def list_contracts(self, q=None, created_by=None):
         sql = 'SELECT * FROM contracts'
-        params = []
+        where, params = [], []
         if q:
-            sql += (' WHERE permit_no LIKE ? OR worker_name LIKE ? OR id_no LIKE ?'
-                    ' OR beneficiary_name LIKE ? OR profession LIKE ?')
+            where.append('(permit_no LIKE ? OR worker_name LIKE ? OR id_no LIKE ?'
+                         ' OR beneficiary_name LIKE ? OR profession LIKE ?)')
             params = [f'%{q}%'] * 5
+        if created_by is not None:
+            where.append('created_by IS ?')
+            params.append(created_by)
+        if where:
+            sql += ' WHERE ' + ' AND '.join(where)
         sql += ' ORDER BY id DESC'
         return [dict(r) for r in self.con.execute(sql, params).fetchall()]
 
@@ -211,8 +250,11 @@ class SqliteDB:
         cur = self.con.execute(
             'INSERT INTO contracts (permit_no,worker_name,id_no,profession,nationality,'
             'provider_name,provider_no,beneficiary_name,beneficiary_no,description,'
-            'start_date,end_date,site,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
-            tuple(data[k] for k in FIELDS) + (now, now))
+            'start_date,end_date,site,created_at,updated_at,created_by,created_by_name,'
+            'created_by_email) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
+            tuple(data[k] for k in FIELDS) + (now, now, data.get('created_by'),
+                                               data.get('created_by_name'),
+                                               data.get('created_by_email')))
         self.con.commit()
         return self.get_contract(cur.lastrowid)
 
@@ -231,6 +273,27 @@ class SqliteDB:
 
     def count(self):
         return self.con.execute('SELECT COUNT(*) FROM contracts').fetchone()[0]
+
+    def count_by_user(self, uid):
+        return self.con.execute('SELECT COUNT(*) FROM contracts WHERE created_by IS ?',
+                                (uid,)).fetchone()[0]
+
+    def counts_by_user(self):
+        rows = self.con.execute('SELECT created_by, COUNT(*) c FROM contracts '
+                                'WHERE created_by IS NOT NULL GROUP BY created_by').fetchall()
+        return {int(r['created_by']): r['c'] for r in rows}
+
+    def bulk_update_user_contracts(self, uid, fields):
+        if not fields:
+            return
+        sets = ', '.join(f'{k}=?' for k in fields)
+        self.con.execute(f'UPDATE contracts SET {sets} WHERE created_by IS ?',
+                         tuple(fields.values()) + (uid,))
+        self.con.commit()
+
+    def bulk_delete_user_contracts(self, uid):
+        self.con.execute('DELETE FROM contracts WHERE created_by IS ?', (uid,))
+        self.con.commit()
 
     def get_settings(self):
         s = dict(DEFAULT_SETTINGS)

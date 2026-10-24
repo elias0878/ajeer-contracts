@@ -3,18 +3,24 @@
 {% block crumb %}الرئيسية / التعاقدات / {{ c.permit_no }}{% endblock %}
 {% block heading %}تفاصيل التعاقد{% endblock %}
 {% block topactions %}
+  {% if can('contracts.print') %}
   <a class="btn" href="{{ url_for('print_contract', id_=c.id) }}" target="_blank">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M7 8V3h10v5"/><rect x="4" y="8" width="16" height="8" rx="2"/><path d="M7 16h10v5H7z"/></svg>
     طباعة
   </a>
+  {% endif %}
+  {% if can('contracts.export') %}
   <a class="btn btn-navy" href="{{ url_for('pdf_contract', id_=c.id) }}">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M12 4v11"/><path d="M8 12l4 4 4-4"/><path d="M5 19h14"/></svg>
     تحميل PDF
   </a>
+  {% endif %}
+  {% if can_edit %}
   <a class="btn btn-primary" href="{{ url_for('edit_contract', id_=c.id) }}">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M4 20h4l10-10-4-4L4 16v4z"/><path d="M13.5 5.5l4 4"/></svg>
     تعديل
   </a>
+  {% endif %}
 {% endblock %}
 
 {% block content %}
@@ -43,9 +49,12 @@
         <div class="kv"><span class="k">البداية</span><span class="v">{{ c.start_date }}</span></div>
         <div class="kv"><span class="k">النهاية</span><span class="v">{{ c.end_date }}</span></div>
         <div class="kv"><span class="k">موقع العمل</span><span class="v">{{ c.site }}</span></div>
+        <div class="kv"><span class="k">أنشأه</span><span class="v">{{ c.created_by_name or '—' }}{% if c.is_mine %} <span style="font-size:10px;color:var(--teal-2)">(أنت)</span>{% endif %}</span></div>
+        <div class="kv"><span class="k">تاريخ الإنشاء</span><span class="v">{{ c.created_at|dt }}</span></div>
       </div>
     </div>
 
+    {% if can('contracts.links') %}
     <div class="card" style="margin-top:16px">
       <div class="card-h"><h2>التحقق الإلكتروني</h2></div>
       <div class="card-b">
@@ -65,13 +74,18 @@
         </div>
       </div>
     </div>
+    {% endif %}
 
     <div class="card" style="margin-top:16px">
       <div class="card-b" style="display:flex;gap:8px;flex-wrap:wrap">
+        {% if can('contracts.create') %}
         <form method="post" action="{{ url_for('duplicate_contract', id_=c.id) }}">
           <button class="btn btn-sm" type="submit">إنشاء نسخة</button>
         </form>
+        {% endif %}
+        {% if can_del %}
         <button class="btn btn-sm btn-danger" type="button" onclick="document.getElementById('delModal').classList.add('on')">حذف</button>
+        {% endif %}
         <span class="spacer" style="flex:1"></span>
         <a class="btn btn-sm btn-ghost" href="{{ url_for('dashboard') }}">القائمة</a>
       </div>

@@ -1,0 +1,121 @@
+{% extends 'base.html' %}
+{% block title %}حسابي{% endblock %}
+{% block crumb %}الحساب / بياناتي{% endblock %}
+{% block heading %}حسابي{% endblock %}
+
+{% block head %}
+<style>
+  .acc-grid{display:grid;grid-template-columns:1.15fr .85fr;gap:16px;align-items:start}
+  .fld{margin-bottom:14px}
+  .fld label{display:block;font-size:12px;font-weight:700;margin-bottom:6px;color:var(--ink-2)}
+  .fld input{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:#fff;font-size:13px;outline:none;transition:.15s}
+  .fld input:focus{border-color:#a9d9d6;box-shadow:0 0 0 4px rgba(19,160,154,.1)}
+  .fld .err{font-size:11px;color:var(--red);margin-top:5px}
+  .fld.bad input{border-color:#efb6b6;background:#fffafa}
+  .acc-head{display:flex;gap:14px;align-items:center;padding:18px}
+  .acc-head .big{width:56px;height:56px;border-radius:16px;background:linear-gradient(135deg,#13a09a,#2f6fd0);color:#fff;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:700}
+  .perm-chip{display:inline-flex;align-items:center;gap:5px;background:#eef7f6;color:#0e7c78;border:1px solid #cdeae7;border-radius:8px;padding:4px 9px;font-size:11px;margin:0 0 5px 5px}
+  @media(max-width:900px){.acc-grid{grid-template-columns:1fr}}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="acc-grid">
+  <div>
+    <div class="card" style="margin-bottom:16px">
+      <div class="acc-head">
+        <div class="big">{{ me_initials }}</div>
+        <div>
+          <b style="font-size:16px">{{ me_name }}</b>
+          <div style="color:var(--muted);font-size:12px" dir="ltr">{{ me.email }}</div>
+          <div style="margin-top:6px">
+            <span class="badge {{ 'b-owner' if me.role=='owner' else ('b-admin' if me.role=='admin' else 'b-user') }}">{{ role_label }}</span>
+            {% if me.contract_limit is not none %}<span class="badge b-mut">حد {{ me.contract_limit }} تعاقد</span>{% endif %}
+            {% if me.expires_at %}<span class="badge b-warn">ينتهي {{ me.expires_at|dshort }}</span>{% endif %}
+          </div>
+        </div>
+        <div class="spacer" style="flex:1"></div>
+        <div style="text-align:center">
+          <div style="font-size:19px;font-weight:700">{{ perm_count }}</div>
+          <div style="font-size:10.5px;color:var(--muted)">صلاحية</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:16px">
+      <div class="card-h"><h2>البيانات الشخصية</h2></div>
+      <div class="card-b">
+        <form method="post">
+          <input type="hidden" name="action" value="profile">
+          <div class="fld {{ 'bad' if errors.get('full_name') }}">
+            <label>الاسم الكامل</label>
+            <input type="text" name="full_name" value="{{ me.full_name }}" required>
+            {% if errors.get('full_name') %}<div class="err">{{ errors.full_name }}</div>{% endif %}
+          </div>
+          <div class="fld {{ 'bad' if errors.get('email') }}">
+            <label>البريد الإلكتروني</label>
+            <input type="email" name="email" dir="ltr" value="{{ me.email }}" required>
+            {% if errors.get('email') %}<div class="err">{{ errors.email }}</div>{% endif %}
+          </div>
+          <button class="btn btn-primary" type="submit">حفظ البيانات</button>
+        </form>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-h"><h2>تغيير كلمة المرور</h2></div>
+      <div class="card-b">
+        <form method="post">
+          <input type="hidden" name="action" value="password">
+          <div class="fld {{ 'bad' if errors.get('current_password') }}">
+            <label>كلمة المرور الحالية</label>
+            <input type="password" name="current_password" autocomplete="current-password" required>
+            {% if errors.get('current_password') %}<div class="err">{{ errors.current_password }}</div>{% endif %}
+          </div>
+          <div class="fld {{ 'bad' if errors.get('new_password') }}">
+            <label>كلمة المرور الجديدة</label>
+            <input type="password" name="new_password" autocomplete="new-password" required>
+            {% if errors.get('new_password') %}<div class="err">{{ errors.new_password }}</div>{% endif %}
+          </div>
+          <div class="fld {{ 'bad' if errors.get('confirm_password') }}">
+            <label>تأكيد كلمة المرور</label>
+            <input type="password" name="confirm_password" autocomplete="new-password" required>
+            {% if errors.get('confirm_password') %}<div class="err">{{ errors.confirm_password }}</div>{% endif %}
+          </div>
+          <button class="btn btn-navy" type="submit">تغيير كلمة المرور</button>
+          <span style="font-size:11px;color:var(--muted);margin-inline-start:10px">سيتم إنهاء الجلسات الأخرى على أجهزة أخرى</span>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div>
+    <div class="card" style="margin-bottom:16px">
+      <div class="card-h"><h2>صلاحياتي</h2><div class="spacer"></div><span style="font-size:11px;color:var(--muted)">{{ perm_count }} صلاحية</span></div>
+      <div class="card-b">
+        {% if me.role == 'owner' %}
+          <div class="badge b-owner" style="margin-bottom:10px">المالك يملك جميع الصلاحيات ضمنياً</div>
+        {% endif %}
+        <div style="max-height:320px;overflow:auto">
+        {% for p in permission_catalog %}
+          {% if me.role == 'owner' or p.key in my_perms %}
+            <span class="perm-chip" title="{{ p.description }}">{{ p.label }}</span>
+          {% endif %}
+        {% endfor %}
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-h"><h2>معلومات الحساب</h2></div>
+      <div class="card-b">
+        <div class="kv"><span class="k">الدور</span><span class="v">{{ role_label }}</span></div>
+        <div class="kv"><span class="k">تاريخ الإنشاء</span><span class="v">{{ me.created_at|dt }}</span></div>
+        <div class="kv"><span class="k">آخر دخول</span><span class="v">{{ me.last_login_at|dt if me.last_login_at else '—' }}</span></div>
+        <div class="kv"><span class="k">الجلسات النشطة</span><span class="v">{{ sessions }}</span></div>
+        <div class="kv"><span class="k">حالة الحساب</span><span class="v">{% if me.is_active %}نشط{% else %}معطّل{% endif %}</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
