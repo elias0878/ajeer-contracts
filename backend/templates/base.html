@@ -137,7 +137,7 @@
   document.addEventListener('keydown', function(e){
     if (e.key === 'Escape') {
       var m = document.getElementById('userMenu'); if (m) m.classList.remove('open');
-      document.querySelectorAll('.modal.open').forEach(function(x){ x.classList.remove('open'); });
+      document.querySelectorAll('.modal.open, .dlg.open').forEach(function(x){ x.classList.remove('open'); });
     }
   });
   /* يجعل أي iframe للمستند يملأ عرض الحاوية بنسبة صحيحة */

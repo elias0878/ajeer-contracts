@@ -240,6 +240,35 @@ def action_label(a):
     return ACTION_LABELS.get(a, a)
 
 
+ENTITY_LABELS = {'user': 'مستخدم', 'contract': 'تعاقد', 'settings': 'إعدادات',
+                 'permission': 'صلاحية', 'system': 'النظام'}
+
+
+def entity_label(e):
+    return ENTITY_LABELS.get(e, e or '')
+
+
+def details_pairs(d):
+    """قائمة (تسمية عربية, قيمة) لعرض التفاصيل كشرائح صغيرة."""
+    if not d or not isinstance(d, dict):
+        return []
+    out = []
+    for k, v in d.items():
+        if v in (None, '', [], {}):
+            continue
+        if isinstance(v, list):
+            if k in ('permissions', 'permissions_added', 'permissions_removed'):
+                v = '، '.join(PERMISSION_MAP[x]['label'] for x in v if x in PERMISSION_MAP) or '—'
+            else:
+                v = '، '.join(str(x) for x in v)
+        elif isinstance(v, dict):
+            v = '، '.join(f'{DETAIL_LABELS.get(kk, kk)}: {vv}' for kk, vv in v.items())
+        elif isinstance(v, bool):
+            v = 'نعم' if v else 'لا'
+        out.append((DETAIL_LABELS.get(k, k), str(v)))
+    return out
+
+
 def details_text(d):
     if not d:
         return '—'
@@ -273,6 +302,7 @@ def inject_globals():
         permission_catalog=PERMISSION_CATALOG, catalog_by_category=catalog_by_category(),
         permission_map=PERMISSION_MAP, perm_count=len(permissions()),
         action_label=action_label, details_text=details_text,
+        details_pairs=details_pairs, entity_label=entity_label,
     )
 
 

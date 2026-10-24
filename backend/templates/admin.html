@@ -46,19 +46,19 @@
   .empty svg{width:44px;height:44px;opacity:.35;margin-bottom:10px}
 
   /* ---------- modal ---------- */
-  .modal{position:fixed;inset:0;background:rgba(8,24,44,.55);backdrop-filter:blur(3px);display:none;align-items:center;justify-content:center;padding:18px;z-index:90}
-  .modal.open{display:flex}
-  .modal-card{background:#fff;border-radius:18px;width:100%;max-width:860px;max-height:92vh;display:flex;flex-direction:column;box-shadow:0 30px 80px rgba(4,16,32,.4);overflow:hidden}
-  .modal-card.sm{max-width:460px}
-  .modal-card.md{max-width:600px}
-  .modal-h{display:flex;align-items:center;gap:12px;padding:16px 20px;border-bottom:1px solid var(--line);background:linear-gradient(135deg,#0b2545,#123a63)}
-  .modal-h h3{margin:0;font-size:15px;color:#fff}
-  .modal-h small{display:block;color:#9fbcd8;font-size:11px;font-weight:400}
-  .modal-h .x{margin-inline-start:auto;background:rgba(255,255,255,.12);border:0;color:#fff;width:32px;height:32px;border-radius:10px;cursor:pointer;font-size:17px;line-height:1}
-  .modal-h .x:hover{background:rgba(255,255,255,.22)}
-  .modal-b{padding:20px;overflow:auto;background:#fbfcfe}
-  .modal-f{padding:14px 20px;border-top:1px solid var(--line);display:flex;gap:9px;justify-content:flex-start;background:#fff}
-  .modal-f .spacer{flex:1}
+  .dlg{position:fixed;inset:0;background:rgba(8,24,44,.55);backdrop-filter:blur(3px);display:none;align-items:center;justify-content:center;padding:18px;z-index:90}
+  .dlg.open{display:flex}
+  .dlg-card{background:#fff;border-radius:18px;width:100%;max-width:860px;max-height:92vh;display:flex;flex-direction:column;box-shadow:0 30px 80px rgba(4,16,32,.4);overflow:hidden}
+  .dlg-card.sm{max-width:460px}
+  .dlg-card.md{max-width:600px}
+  .dlg-h{display:flex;align-items:center;gap:12px;padding:16px 20px;border-bottom:1px solid var(--line);background:linear-gradient(135deg,#0b2545,#123a63)}
+  .dlg-h h3{margin:0;font-size:15px;color:#fff}
+  .dlg-h small{display:block;color:#9fbcd8;font-size:11px;font-weight:400}
+  .dlg-h .x{margin-inline-start:auto;background:rgba(255,255,255,.12);border:0;color:#fff;width:32px;height:32px;border-radius:10px;cursor:pointer;font-size:17px;line-height:1;display:flex;align-items:center;justify-content:center}
+  .dlg-h .x:hover{background:rgba(255,255,255,.22)}
+  .dlg-b{padding:20px;overflow:auto;background:#fbfcfe}
+  .dlg-f{padding:14px 20px;border-top:1px solid var(--line);display:flex;gap:9px;justify-content:flex-start;background:#fff}
+  .dlg-f .spacer{flex:1}
 
   .frow{display:grid;grid-template-columns:1fr 1fr;gap:14px}
   .fld{margin-bottom:14px}
@@ -123,6 +123,11 @@
   .matrix .no{color:#c9d4e0}
   .matrix tbody tr:hover{background:#fafcff}
   .legend{display:flex;gap:14px;font-size:11px;color:var(--muted);padding:12px 16px;border-top:1px solid var(--line-2);flex-wrap:wrap}
+  .dt{display:inline-block;background:#f4f8fc;border:1px solid var(--line-2);border-radius:7px;padding:1px 7px;
+      margin:0 0 3px 3px;font-size:10.5px;color:var(--ink-2);max-width:270px;overflow:hidden;
+      text-overflow:ellipsis;white-space:nowrap;vertical-align:middle}
+  .dt b{color:var(--muted);font-weight:700;margin-inline-end:4px}
+  .dt.more{background:#eaf1fc;border-color:#d5e3f6;color:#2f6fd0;font-weight:700;cursor:help}
 </style>
 {% endblock %}
 
@@ -351,11 +356,15 @@
         <td style="white-space:nowrap;color:var(--muted);font-size:11.5px">{{ a.created_at|dt }}</td>
         <td style="white-space:nowrap"><b style="font-size:12px">{{ a.actor_email }}</b></td>
         <td><span class="badge {{ 'b-off' if 'delete' in a.action else ('b-on' if 'create' in a.action else ('b-admin' if 'users' in a.action or 'permissions' in a.action else 'b-mut')) }}">{{ action_label(a.action) }}</span></td>
-        <td style="color:var(--muted);font-size:11.5px">{{ a.entity }}{% if a.entity_id %} #{{ a.entity_id }}{% endif %}</td>
-        <td style="max-width:340px">
-          <div style="font-size:11px;color:var(--ink-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="{{ a.details|tojson }}">
-            {{ details_text(a.details) }}
-          </div>
+        <td style="color:var(--muted);font-size:11.5px;white-space:nowrap">{{ entity_label(a.entity) }}{% if a.entity_id %} #{{ a.entity_id }}{% endif %}</td>
+        <td style="max-width:380px">
+          {% set pairs = details_pairs(a.details) %}
+          {% if pairs %}
+            {% for k, v in pairs[:3] %}
+              <span class="dt"><b>{{ k }}</b><span dir="auto">{{ v|truncate(48) }}</span></span>
+            {% endfor %}
+            {% if pairs|length > 3 %}<span class="dt more" title="{{ details_text(a.details) }}">+{{ pairs|length - 3 }}</span>{% endif %}
+          {% else %}<span style="color:#c9d4e0">—</span>{% endif %}
         </td>
       </tr>
       {% endfor %}
@@ -370,16 +379,16 @@
 {% endif %}
 
 <!-- ============ نافذة إنشاء/تعديل مستخدم ============ -->
-<div class="modal" id="userModal">
-  <div class="modal-card">
-    <div class="modal-h">
+<div class="dlg" id="userModal">
+  <div class="dlg-card">
+    <div class="dlg-h">
       <div>
         <h3 id="umTitle">مستخدم جديد</h3>
         <small id="umSub">إنشاء حساب وإسناد الصلاحيات</small>
       </div>
       <button class="x" onclick="closeModal('userModal')">×</button>
     </div>
-    <div class="modal-b">
+    <div class="dlg-b">
       <div class="frow">
         <div class="fld" id="f-full_name">
           <label>الاسم الكامل <span class="req">*</span></label>
@@ -465,7 +474,7 @@
       </div>
       {% endfor %}
     </div>
-    <div class="modal-f">
+    <div class="dlg-f">
       <button class="btn btn-primary" id="umSave" onclick="saveUser()">حفظ</button>
       <button class="btn" onclick="closeModal('userModal')">إلغاء</button>
       <div class="spacer"></div>
@@ -475,30 +484,30 @@
 </div>
 
 <!-- ============ نافذة الإجراءات ============ -->
-<div class="modal" id="actModal">
-  <div class="modal-card md">
-    <div class="modal-h">
+<div class="dlg" id="actModal">
+  <div class="dlg-card md">
+    <div class="dlg-h">
       <div>
         <h3 id="amTitle">إجراءات المستخدم</h3>
         <small id="amSub"></small>
       </div>
       <button class="x" onclick="closeModal('actModal')">×</button>
     </div>
-    <div class="modal-b" id="amBody"></div>
-    <div class="modal-f">
+    <div class="dlg-b" id="amBody"></div>
+    <div class="dlg-f">
       <button class="btn" onclick="closeModal('actModal')">إغلاق</button>
     </div>
   </div>
 </div>
 
 <!-- ============ نافذة كلمة المرور ============ -->
-<div class="modal" id="pwModal">
-  <div class="modal-card sm">
-    <div class="modal-h">
+<div class="dlg" id="pwModal">
+  <div class="dlg-card sm">
+    <div class="dlg-h">
       <div><h3>إعادة تعيين كلمة المرور</h3><small id="pwSub"></small></div>
       <button class="x" onclick="closeModal('pwModal')">×</button>
     </div>
-    <div class="modal-b">
+    <div class="dlg-b">
       <div class="fld" id="f-pw2">
         <label>كلمة المرور الجديدة</label>
         <input type="text" id="pw_new" placeholder="6 محارف على الأقل" dir="ltr">
@@ -506,7 +515,7 @@
       </div>
       <div style="font-size:11.5px;color:var(--muted)">سيتم إنهاء جميع جلسات المستخدم الحالية وإلزامه بكلمة المرور الجديدة.</div>
     </div>
-    <div class="modal-f">
+    <div class="dlg-f">
       <button class="btn btn-primary" onclick="doResetPassword()">تعيين</button>
       <button class="btn" onclick="closeModal('pwModal')">إلغاء</button>
     </div>
@@ -790,7 +799,7 @@ async function doResetPassword(){
 /* ---------------- modal helpers ---------------- */
 function openModal(id){ document.getElementById(id).classList.add('open'); }
 function closeModal(id){ document.getElementById(id).classList.remove('open'); }
-document.querySelectorAll('.modal').forEach(function(m){
+document.querySelectorAll('.dlg').forEach(function(m){
   m.addEventListener('click', function(e){ if (e.target === m) m.classList.remove('open'); });
 });
 </script>
