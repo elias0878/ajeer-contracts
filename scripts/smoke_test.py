@@ -102,6 +102,25 @@ def main():
     js = r.get_json() or {}
     check('GET /api/health', r.status_code == 200 and js.get('status') == 'ok', str(js))
 
+    # --- رابط التحقق الجديد: /agiar/index.php?id=<token> ---
+    import re as _re
+    view = client.get('/contracts/1').get_data(as_text=True)
+    m = _re.search(r'id="verifyLink"[^>]*value="([^"]+)"', view)
+    link = m.group(1) if m else ''
+    check('رابط التحقق موجود في صفحة التعاقد', bool(link), link)
+    check('شكل الرابط /agiar/index.php?id=', '/agiar/index.php?id=' in link, link)
+    _tok = link.split('id=')[-1]
+    check('رمز التحقق 64 محرفاً', len(_tok) >= 40, str(len(_tok)))
+    check('الرابط لا يحتوي رقم التصريح', 'TQ101515442' not in link, link)
+    r = client.get('/agiar/index.php?id=' + _tok)
+    check('صفحة التحقق تفتح بالرمز', r.status_code == 200 and 'TQ101515442' in r.get_data(as_text=True))
+    r = client.get('/agiar/index.php?id=' + 'X' * 64)
+    check('رمز غير صحيح يعيد 404', r.status_code == 404, str(r.status_code))
+    r = client.get('/agiar/index.php')
+    check('صفحة إدخال الرمز تعمل', r.status_code == 200)
+    r = client.get('/verify/TQ101515442')
+    check('الروابط القديمة ما زالت تعمل (توافق)', r.status_code == 200)
+
     # --- PDF ---
     r = client.get('/contracts/1/pdf')
     pdf = r.data

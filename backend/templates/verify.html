@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>التحقق من التصريح {{ permit_no if permit_no else '' }} — تعاقد أجير</title>
+<title>التحقق من التصريح — تعاقد أجير</title>
 <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
 </head>
 <body>
@@ -50,9 +50,15 @@
       <div class="ok" style="background:var(--red-soft);color:var(--red)">
         <svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M9 9l6 6M15 9l-6 6"/></svg>
       </div>
-      <h2>لا يوجد تصريح بهذا الرقم</h2>
-      <p>تأكد من رقم التصريح أو امسح رمز QR الموجود على المستند مرة أخرى.</p>
-      <div style="margin-top:18px"><a class="btn" href="{{ url_for('dashboard') }}">العودة للمنصة</a></div>
+      <h2>{{ 'لا يوجد تصريح بهذا الرابط' if verify_key else 'التحقق من صحة تصريح' }}</h2>
+      <p>{{ 'الرابط غير صحيح أو منتهي. يرجى مسح رمز QR الموجود على المستند مرة أخرى، أو التأكد من نسخ الرابط كاملاً.' if verify_key else 'امسح رمز QR الظاهر على مستند التعاقد، أو الصق رابط التحقق في الحقل أدناه.' }}</p>
+
+      <form method="get" action="{{ url_for('verify_gateway') }}" style="margin-top:18px;display:flex;gap:8px;max-width:520px;margin-inline:auto">
+        <input name="id" dir="ltr" value="{{ verify_key or '' }}" placeholder="رمز التحقق أو رابط التحقق"
+               style="flex:1;padding:11px 13px;border:1px solid #dfe7f0;border-radius:11px;font-family:inherit;font-size:12.5px">
+        <button class="btn btn-primary" type="submit">تحقق</button>
+      </form>
+      <div style="margin-top:14px"><a class="btn btn-ghost" href="{{ url_for('login') }}">دخول المنصة</a></div>
     </div>
     {% endif %}
   </div>

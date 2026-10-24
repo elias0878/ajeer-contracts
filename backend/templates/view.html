@@ -66,9 +66,9 @@
           </div>
         </div>
         <div style="margin-top:12px">
-          <div class="note" style="margin-bottom:6px">رابط التحقق:</div>
+          <div class="note" style="margin-bottom:6px">رابط التحقق الخاص بهذا التعاقد:</div>
           <div class="copy-row">
-            <input readonly id="verifyLink" value="{{ settings.verify_domain.rstrip('/') }}/verify/{{ c.permit_no }}">
+            <input readonly id="verifyLink" dir="ltr" value="{{ verify_url }}">
             <button class="btn btn-sm" type="button" onclick="copyLink()">نسخ</button>
           </div>
         </div>

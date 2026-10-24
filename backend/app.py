@@ -7,6 +7,7 @@ Flask app (Vercel-ready, Supabase / SQLite)
 import base64
 import io
 import os
+import secrets
 import random
 import re
 import string
@@ -71,9 +72,44 @@ def base_url():
     return PUBLIC_BASE or request.url_root.rstrip('/')
 
 
-def verify_link(permit_no, s=None):
+DEFAULT_VERIFY_DOMAIN = ''          # فارغ = نطاق التطبيق الحالي
+DEFAULT_VERIFY_PATH = '/agiar/index.php'
+
+
+def new_verify_token():
+    """رمز تحقق عشوائي غير قابل للتخمين (64 محرفاً base64url)."""
+    return secrets.token_urlsafe(48)
+
+
+def verify_base(s=None):
+    """أساس رابط التحقق: النطاق + المسار، مثل https://<domain>/agiar/index.php"""
     s = s or settings()
-    return f"{(s.get('verify_domain') or 'https://ajeer.com.sa').rstrip('/')}/verify/{permit_no}"
+    domain = (s.get('verify_domain') or DEFAULT_VERIFY_DOMAIN
+              or PUBLIC_BASE or request.url_root).rstrip('/')
+    path = (s.get('verify_path') or DEFAULT_VERIFY_PATH).strip()
+    if path and not path.startswith('/'):
+        path = '/' + path
+    return domain + path
+
+
+def verify_link(contract_or_permit, token=None, s=None):
+    """رابط التحقق المفرد لكل تعاقد: <base>?id=<token>"""
+    s = s or settings()
+    if isinstance(contract_or_permit, dict):
+        tok = contract_or_permit.get('verify_token') or token
+    else:
+        tok = token
+    return f'{verify_base(s)}?id={tok}' if tok else ''
+
+
+def ensure_tokens():
+    """يمنح كل تعاقد قديم رمز تحقق إن لم يكن له."""
+    try:
+        db = get_db()
+        for row in db.missing_tokens():
+            db.set_token(row['id'], new_verify_token())
+    except Exception:
+        pass
 
 
 def status_of(c):
@@ -95,8 +131,9 @@ def status_of(c):
 def doc_context(c, s=None):
     s = s or settings()
     ctx = dict(c)
-    ctx['qr'] = qr_data_uri(verify_link(c['permit_no'], s))
-    ctx['verify_domain'] = s.get('verify_domain') or 'https://ajeer.com.sa'
+    ctx['qr'] = qr_data_uri(verify_link(c, s=s))
+    ctx['verify_domain'] = s.get('verify_domain') or PUBLIC_BASE or request.url_root.rstrip('/')
+    ctx['verify_url'] = verify_link(c, s=s)
     return ctx
 
 
@@ -184,6 +221,12 @@ def _before():
         ensure_bootstrap()
     except Exception:
         pass
+    if not getattr(app, '_tokens_checked', False):
+        try:
+            ensure_tokens()
+            app._tokens_checked = True
+        except Exception:
+            pass
     auth.load_current_user()
 
 
@@ -482,6 +525,7 @@ def new_contract():
         data['created_by'] = u['id']
         data['created_by_name'] = display_name(u)
         data['created_by_email'] = u['email']
+        data['verify_token'] = new_verify_token()
         row = db.create_contract(data)
         log_audit('contracts.create', 'contract', row['id'],
                   {'permit_no': data['permit_no'], 'worker_name': data['worker_name']})
@@ -541,7 +585,8 @@ def view_contract(id_):
     c['status'], c['status_label'] = status_of(c)
     c['is_mine'] = owns(c)
     return render_template('view.html', page='dashboard', c=c, settings=settings(),
-                           can_edit=can_edit(c), can_del=can_delete(c))
+                           can_edit=can_edit(c), can_del=can_delete(c),
+                           verify_url=verify_link(c))
 
 
 @app.route('/contracts/<int:id_>/delete', methods=['POST'])
@@ -570,6 +615,7 @@ def duplicate_contract(id_):
     data['created_by'] = u['id']
     data['created_by_name'] = display_name(u)
     data['created_by_email'] = u['email']
+    data['verify_token'] = new_verify_token()
     row = db.create_contract(data)
     log_audit('contracts.duplicate', 'contract', row['id'],
               {'from': c['permit_no'], 'permit_no': data['permit_no']})
@@ -612,7 +658,7 @@ def pdf_contract(id_):
         abort(403)
     ctx = doc_context(c)
     try:
-        raw = build_pdf(ctx, qr_bytes(verify_link(c['permit_no'])))
+        raw = build_pdf(ctx, qr_bytes(verify_link(c)))
     except Exception:
         return redirect(url_for('print_contract', id_=id_, auto=0))
     log_audit('contracts.pdf', 'contract', id_, {'permit_no': c['permit_no']})
@@ -639,7 +685,7 @@ def settings_page():
     db = get_db()
     if request.method == 'POST':
         changes = {}
-        for k in ('org_name', 'verify_domain', 'default_provider_name',
+        for k in ('org_name', 'verify_domain', 'verify_path', 'default_provider_name',
                   'default_provider_no', 'default_site'):
             v = (request.form.get(k) or '').strip()
             if v:
@@ -648,8 +694,9 @@ def settings_page():
         log_audit('settings.update', 'settings', '', changes)
         flash('تم حفظ الإعدادات', 'success')
         return redirect(url_for('settings_page'))
-    return render_template('settings.html', page='settings', settings=settings(),
-                           backend=db.backend)
+    s = settings()
+    return render_template('settings.html', page='settings', settings=s,
+                           backend=db.backend, verify_base=verify_base(s))
 
 
 # ---------------------------------------------------------------- admin
@@ -1013,16 +1060,47 @@ def api_me():
 
 
 # ---------------------------------------------------------------- public
-@app.route('/verify/<permit_no>')
-def verify(permit_no):
-    c = get_db().get_by_permit(permit_no)
+def _lookup_verify(key):
+    """يدعم رمز التحقق الجديد (64 محرفاً) أو رقم التصريح القديم."""
+    if not key:
+        return None
+    key = key.strip()
+    db = get_db()
+    c = None
+    if len(key) >= 20:
+        c = db.get_by_token(key)
+    return c or db.get_by_permit(key)
+
+
+@app.route('/agiar/index.php')
+@app.route('/agiar/')
+@app.route('/agiar')
+def verify_gateway():
+    """صفحة التحقق التي يفتحها رمز QR — /agiar/index.php?id=<token>"""
+    key = (request.args.get('id') or request.args.get('t')
+           or request.args.get('token') or request.args.get('code') or '').strip()
+    if key.startswith('http'):
+        key = key.split('id=')[-1]
+    c = _lookup_verify(key)
     status = status_of(c) if c else ('unknown', 'غير موجود')
-    return render_template('verify.html', c=c, status=status, settings=settings())
+    resp = render_template('verify.html', c=c, status=status, settings=settings(),
+                           verify_key=key, page='verify')
+    return (resp, 200) if (c or not key) else (resp, 404)
+
+
+@app.route('/verify/<key>')
+def verify(key):
+    c = _lookup_verify(key)
+    status = status_of(c) if c else ('unknown', 'غير موجود')
+    resp = render_template('verify.html', c=c, status=status, settings=settings(),
+                           verify_key=key, page='verify')
+    return (resp, 200) if (c or not key) else (resp, 404)
 
 
 @app.route('/api/qr/<permit_no>.png')
 def qr_png(permit_no):
-    target = request.args.get('target') or verify_link(permit_no)
+    c = get_db().get_by_permit(permit_no)
+    target = request.args.get('target') or (verify_link(c) if c else '')
     buf = io.BytesIO(qr_bytes(target))
     buf.seek(0)
     return send_file(buf, mimetype='image/png')

@@ -58,6 +58,9 @@ create table if not exists public.app_audit_log (
 );
 create index if not exists app_audit_created_idx on public.app_audit_log(created_at desc);
 
+-- ---------- رمز التحقق الفريد لكل تعاقد ----------
+alter table public.contracts add column if not exists verify_token      text unique;
+
 -- ---------- ربط العقود بمنشئها ----------
 alter table public.contracts add column if not exists created_by        bigint;
 alter table public.contracts add column if not exists created_by_name   text;

@@ -14,10 +14,20 @@
           <input id="org_name" name="org_name" value="{{ settings.org_name }}">
           <div class="tip">يظهر في ترويسة المنصة فقط، ولا يظهر داخل المستند.</div>
         </div>
-        <div class="field full">
-          <label for="verify_domain">النطاق المستخدم في التحقق ورابط QR</label>
+        <div class="field">
+          <label for="verify_domain">نطاق التحقق (Domain)</label>
           <input id="verify_domain" name="verify_domain" value="{{ settings.verify_domain }}" dir="ltr" style="text-align:right">
-          <div class="tip">مثال: https://ajeer.com.sa — يُبنى عليه رابط التحقق <span dir="ltr">/verify/رقم-التصريح</span></div>
+          <div class="tip">مثال: <span dir="ltr">https://ajeer-hirs-giwa.net</span></div>
+        </div>
+        <div class="field">
+          <label for="verify_path">مسار صفحة التحقق</label>
+          <input id="verify_path" name="verify_path" value="{{ settings.verify_path }}" dir="ltr" style="text-align:right">
+          <div class="tip">مثال: <span dir="ltr">/agiar/index.php</span></div>
+        </div>
+        <div class="field full">
+          <label>شكل رابط التحقق الناتج</label>
+          <input readonly dir="ltr" style="text-align:left;background:#f6f9fc" value="{{ verify_base }}?id=«رمز-عشوائي-64-محرفاً-لكل-تعاقد»">
+          <div class="tip">كل تعاقد يحصل على رمز تحقق عشوائي غير قابل للتخمين — لا يظهر رقم التصريح داخل الرابط.</div>
         </div>
         <div class="field">
           <label for="default_provider_name">المنشأة المقدمة للخدمة (افتراضي)</label>

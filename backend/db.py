@@ -25,7 +25,8 @@ FIELDS = ['permit_no', 'worker_name', 'id_no', 'profession', 'nationality', 'pro
 
 DEFAULT_SETTINGS = {
     'org_name': 'إدارة العقود',
-    'verify_domain': 'https://ajeer.com.sa',
+    'verify_domain': '',  # فارغ = يُستخدم نطاق التطبيق الحالي تلقائياً
+    'verify_path': '/agiar/index.php',
     'default_provider_name': 'مؤسسة مكعب العربية للمقاولات العامة',
     'default_provider_no': '1970887-6',
     'default_site': 'الرياض',
@@ -95,6 +96,10 @@ class SupabaseDB:
         rows = _rest('contracts', params={'permit_no': f'eq.{permit_no}', 'select': '*'}) or []
         return self._norm(rows[0]) if rows else None
 
+    def get_by_token(self, token):
+        rows = _rest('contracts', params={'verify_token': f'eq.{token}', 'select': '*'}) or []
+        return self._norm(rows[0]) if rows else None
+
     def permit_exists(self, permit_no, exclude_id=None):
         params = {'permit_no': f'eq.{permit_no}', 'select': 'id'}
         if exclude_id:
@@ -104,7 +109,7 @@ class SupabaseDB:
     def create_contract(self, data):
         now = datetime.utcnow().isoformat()
         payload = {k: data[k] for k in FIELDS}
-        for k in ('created_by', 'created_by_name', 'created_by_email'):
+        for k in ('created_by', 'created_by_name', 'created_by_email', 'verify_token'):
             if data.get(k) is not None:
                 payload[k] = data[k]
         payload['created_at'] = now
@@ -151,6 +156,14 @@ class SupabaseDB:
         return _rest('contracts', method='DELETE', params={'created_by': f'eq.{uid}'},
                      prefer='return=minimal')
 
+    def missing_tokens(self):
+        rows = _rest('contracts', params={'select': 'id,permit_no,verify_token'}) or []
+        return [r for r in rows if not r.get('verify_token')]
+
+    def set_token(self, cid, token):
+        return _rest('contracts', method='PATCH', params={'id': f'eq.{cid}'},
+                     body={'verify_token': token}, prefer='return=minimal')
+
     # ---- settings ----
     def get_settings(self):
         rows = _rest('settings', params={'select': 'key,value'}) or []
@@ -186,7 +199,7 @@ CREATE TABLE IF NOT EXISTS contracts (
     provider_no TEXT NOT NULL, beneficiary_name TEXT NOT NULL, beneficiary_no TEXT NOT NULL,
     description TEXT NOT NULL, start_date TEXT NOT NULL, end_date TEXT NOT NULL,
     site TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
-    created_by INTEGER, created_by_name TEXT, created_by_email TEXT);
+    created_by INTEGER, created_by_name TEXT, created_by_email TEXT, verify_token TEXT);
 CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT);
 """
 
@@ -201,7 +214,7 @@ class SqliteDB:
         self.con.executescript(SCHEMA)
         cols = {r[1] for r in self.con.execute('PRAGMA table_info(contracts)').fetchall()}
         for col, typ in (('created_by', 'INTEGER'), ('created_by_name', 'TEXT'),
-                         ('created_by_email', 'TEXT')):
+                         ('created_by_email', 'TEXT'), ('verify_token', 'TEXT')):
             if col not in cols:
                 self.con.execute(f'ALTER TABLE contracts ADD COLUMN {col} {typ}')
         for k, v in DEFAULT_SETTINGS.items():
@@ -238,6 +251,18 @@ class SqliteDB:
         r = self.con.execute('SELECT * FROM contracts WHERE permit_no=?', (permit_no,)).fetchone()
         return dict(r) if r else None
 
+    def get_by_token(self, token):
+        r = self.con.execute('SELECT * FROM contracts WHERE verify_token=?', (token,)).fetchone()
+        return dict(r) if r else None
+
+    def missing_tokens(self):
+        rows = self.con.execute('SELECT id,permit_no,verify_token FROM contracts').fetchall()
+        return [dict(r) for r in rows if not r['verify_token']]
+
+    def set_token(self, cid, token):
+        self.con.execute('UPDATE contracts SET verify_token=? WHERE id=?', (token, cid))
+        self.con.commit()
+
     def permit_exists(self, permit_no, exclude_id=None):
         if exclude_id:
             return bool(self.con.execute('SELECT 1 FROM contracts WHERE permit_no=? AND id<>?',
@@ -251,10 +276,11 @@ class SqliteDB:
             'INSERT INTO contracts (permit_no,worker_name,id_no,profession,nationality,'
             'provider_name,provider_no,beneficiary_name,beneficiary_no,description,'
             'start_date,end_date,site,created_at,updated_at,created_by,created_by_name,'
-            'created_by_email) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
+            'created_by_email,verify_token) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
             tuple(data[k] for k in FIELDS) + (now, now, data.get('created_by'),
                                                data.get('created_by_name'),
-                                               data.get('created_by_email')))
+                                               data.get('created_by_email'),
+                                               data.get('verify_token')))
         self.con.commit()
         return self.get_contract(cur.lastrowid)
 
