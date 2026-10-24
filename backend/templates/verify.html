@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>التحقق من التصريح {{ permit_no if permit_no else '' }} — تعاقد أجير</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
+</head>
+<body>
+<div class="verify-wrap">
+  <div class="verify-card">
+    <div class="verify-head">
+      <img src="{{ url_for('static', filename='img/ajeer_logo.png') }}" alt="أجير">
+      <div style="flex:1"></div>
+      <span class="pill {{ c and status[0] or 'unknown' }}">{{ status[1] }}</span>
+    </div>
+
+    {% if c %}
+    <div class="verify-hero">
+      <div class="ok" style="{{ '' if status[0]=='active' or status[0]=='soon' else '' }}{{ 'background:var(--red-soft);color:var(--red)' if status[0] in ('expired','pending') }}">
+        {% if status[0] in ('active','soon') %}
+        <svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l7 3v6c0 4.5-3 7.6-7 9-4-1.4-7-4.5-7-9V6l7-3z"/><path d="M9 12l2 2 4-4"/></svg>
+        {% else %}
+        <svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M9 9l6 6M15 9l-6 6"/></svg>
+        {% endif %}
+      </div>
+      <h2>{{ 'تصريح ساري المفعول' if status[0] in ('active','soon') else ('انتهت صلاحية التصريح' if status[0]=='expired' else 'لم يبدأ سريان التصريح') }}</h2>
+      <p>تم التحقق من بيانات التصريح رقم <b style="direction:ltr;display:inline-block">{{ c.permit_no }}</b></p>
+    </div>
+
+    <div class="verify-body">
+      <table class="vtable">
+        <tr><td>اسم العامل</td><td>{{ c.worker_name }}</td></tr>
+        <tr><td>رقم الهوية / الإقامة</td><td>{{ c.id_no }}</td></tr>
+        <tr><td>المهنة</td><td>{{ c.profession }}</td></tr>
+        <tr><td>الجنسية</td><td>{{ c.nationality }}</td></tr>
+        <tr><td>المنشأة المقدمة للخدمة</td><td>{{ c.provider_name }}</td></tr>
+        <tr><td>المنشأة المستفيدة من الخدمة</td><td>{{ c.beneficiary_name }}</td></tr>
+        <tr><td>نبذة عن التعاقد</td><td>{{ c.description }}</td></tr>
+        <tr><td>تاريخ بداية التصريح</td><td>{{ c.start_date }}</td></tr>
+        <tr><td>تاريخ نهاية التصريح</td><td>{{ c.end_date }}</td></tr>
+        <tr><td>مواقع العمل</td><td>{{ c.site }}</td></tr>
+      </table>
+      <div class="tipbox" style="text-align:center">
+        * خدمة معتمدة من وزارة الموارد البشرية والتنمية الاجتماعية *
+      </div>
+    </div>
+    {% else %}
+    <div class="verify-hero">
+      <div class="ok" style="background:var(--red-soft);color:var(--red)">
+        <svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M9 9l6 6M15 9l-6 6"/></svg>
+      </div>
+      <h2>لا يوجد تصريح بهذا الرقم</h2>
+      <p>تأكد من رقم التصريح أو امسح رمز QR الموجود على المستند مرة أخرى.</p>
+      <div style="margin-top:18px"><a class="btn" href="{{ url_for('dashboard') }}">العودة للمنصة</a></div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+</body>
+</html>

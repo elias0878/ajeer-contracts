@@ -1,0 +1,204 @@
+{% extends 'base.html' %}
+{% block title %}{{ 'تعديل تعاقد' if mode=='edit' else 'إنشاء تعاقد' }}{% endblock %}
+{% block crumb %}الرئيسية / التعاقدات / {{ 'تعديل' if mode=='edit' else 'إنشاء' }}{% endblock %}
+{% block heading %}{{ 'تعديل التعاقد ' ~ c.permit_no if mode=='edit' else 'إنشاء تعاقد جديد' }}{% endblock %}
+{% block topactions %}
+  <a class="btn" href="{{ url_for('dashboard') }}">رجوع للقائمة</a>
+{% endblock %}
+
+{% block content %}
+<form method="post" id="cform" class="fs-grid" novalidate
+      action="{{ url_for('edit_contract', id_=c.id) if mode=='edit' else url_for('new_contract') }}">
+  <div class="card form-card">
+
+    <!-- بيانات العامل -->
+    <section class="fs">
+      <div class="fs-h">
+        <div class="n">1</div><h3>بيانات العامل</h3>
+        <span class="hint">تظهر في الجدول العلوي من التصريح</span>
+      </div>
+      <div class="fields">
+        <div class="field full">
+          <label for="worker_name">اسم العامل <span>*</span></label>
+          <input id="worker_name" name="worker_name" value="{{ c.worker_name }}" placeholder="الاسم الرباعي كما في الهوية" class="{{ 'err' if errors.worker_name }}">
+          {% if errors.worker_name %}<div class="msg">{{ errors.worker_name }}</div>{% endif %}
+        </div>
+        <div class="field">
+          <label for="id_no">رقم الهوية / الإقامة <span>*</span></label>
+          <input id="id_no" name="id_no" value="{{ c.id_no }}" placeholder="2572542054" class="{{ 'err' if errors.id_no }}" dir="ltr" style="text-align:right">
+          {% if errors.id_no %}<div class="msg">{{ errors.id_no }}</div>{% endif %}
+        </div>
+        <div class="field">
+          <label for="profession">المهنة <span>*</span></label>
+          <input id="profession" name="profession" value="{{ c.profession }}" placeholder="عامل تحميل وتنزيل" class="{{ 'err' if errors.profession }}">
+          {% if errors.profession %}<div class="msg">{{ errors.profession }}</div>{% endif %}
+        </div>
+        <div class="field">
+          <label for="nationality">الجنسية <span>*</span></label>
+          <input id="nationality" name="nationality" value="{{ c.nationality }}" list="natlist" class="{{ 'err' if errors.nationality }}">
+          <datalist id="natlist">
+            <option>مصر</option><option>السودان</option><option>الهند</option><option>باكستان</option>
+            <option>بنغلاديش</option><option>الفلبين</option><option>اليمن</option><option>الأردن</option>
+            <option>سوريا</option><option>لبنان</option><option>إندونيسيا</option><option>سريلانكا</option>
+            <option>نيبال</option><option>أثيوبيا</option><option>المملكة العربية السعودية</option>
+          </datalist>
+          {% if errors.nationality %}<div class="msg">{{ errors.nationality }}</div>{% endif %}
+        </div>
+        <div class="field">
+          <label for="permit_no">رقم التصريح <span>*</span></label>
+          <input id="permit_no" name="permit_no" value="{{ c.permit_no }}" dir="ltr" style="text-align:right"
+                 class="{{ 'err' if errors.permit_no }}">
+          <div class="tip">صيغة الرقم: TQ ثم 9 أرقام — يُولَّد تلقائياً ويمكن تعديله.</div>
+          {% if errors.permit_no %}<div class="msg">{{ errors.permit_no }}</div>{% endif %}
+        </div>
+      </div>
+    </section>
+
+    <!-- مقدم الخدمة -->
+    <section class="fs">
+      <div class="fs-h">
+        <div class="n">2</div><h3>بيانات مقدم الخدمة</h3>
+      </div>
+      <div class="fields">
+        <div class="field full">
+          <label for="provider_name">المنشأة المقدمة للخدمة <span>*</span></label>
+          <input id="provider_name" name="provider_name" value="{{ c.provider_name }}" class="{{ 'err' if errors.provider_name }}">
+          {% if errors.provider_name %}<div class="msg">{{ errors.provider_name }}</div>{% endif %}
+        </div>
+        <div class="field">
+          <label for="provider_no">رقم المنشأة في وزارة الموارد البشرية <span>*</span></label>
+          <input id="provider_no" name="provider_no" value="{{ c.provider_no }}" dir="ltr" style="text-align:right" class="{{ 'err' if errors.provider_no }}">
+          {% if errors.provider_no %}<div class="msg">{{ errors.provider_no }}</div>{% endif %}
+        </div>
+      </div>
+    </section>
+
+    <!-- المستفيد -->
+    <section class="fs">
+      <div class="fs-h">
+        <div class="n">3</div><h3>بيانات المستفيد من الخدمة</h3>
+      </div>
+      <div class="fields">
+        <div class="field full">
+          <label for="beneficiary_name">المنشأة المستفيدة من الخدمة <span>*</span></label>
+          <input id="beneficiary_name" name="beneficiary_name" value="{{ c.beneficiary_name }}" class="{{ 'err' if errors.beneficiary_name }}">
+          {% if errors.beneficiary_name %}<div class="msg">{{ errors.beneficiary_name }}</div>{% endif %}
+        </div>
+        <div class="field">
+          <label for="beneficiary_no">رقم المنشأة في وزارة الموارد البشرية <span>*</span></label>
+          <input id="beneficiary_no" name="beneficiary_no" value="{{ c.beneficiary_no }}" dir="ltr" style="text-align:right" class="{{ 'err' if errors.beneficiary_no }}">
+          {% if errors.beneficiary_no %}<div class="msg">{{ errors.beneficiary_no }}</div>{% endif %}
+        </div>
+      </div>
+    </section>
+
+    <!-- التصريح -->
+    <section class="fs">
+      <div class="fs-h">
+        <div class="n">4</div><h3>بيانات التصريح</h3>
+      </div>
+      <div class="fields">
+        <div class="field full">
+          <label for="description">نبذة عن التعاقد <span>*</span></label>
+          <input id="description" name="description" value="{{ c.description }}" placeholder="مشاريع تركيب المصاعد الخاصة بالشركة" class="{{ 'err' if errors.description }}">
+          {% if errors.description %}<div class="msg">{{ errors.description }}</div>{% endif %}
+        </div>
+        <div class="field">
+          <label for="start_date">تاريخ بداية التصريح <span>*</span></label>
+          <input id="start_date" type="date" name="start_date" value="{{ c.start_date }}" class="{{ 'err' if errors.start_date }}">
+          {% if errors.start_date %}<div class="msg">{{ errors.start_date }}</div>{% endif %}
+        </div>
+        <div class="field">
+          <label for="end_date">تاريخ نهاية التصريح <span>*</span></label>
+          <input id="end_date" type="date" name="end_date" value="{{ c.end_date }}" class="{{ 'err' if errors.end_date }}">
+          {% if errors.end_date %}<div class="msg">{{ errors.end_date }}</div>{% endif %}
+        </div>
+        <div class="field full">
+          <label for="site">مواقع العمل <span>*</span></label>
+          <input id="site" name="site" value="{{ c.site }}" class="{{ 'err' if errors.site }}">
+          {% if errors.site %}<div class="msg">{{ errors.site }}</div>{% endif %}
+        </div>
+      </div>
+    </section>
+
+    <div class="form-foot">
+      <button class="btn btn-primary" type="submit">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 13l4 4L19 7"/></svg>
+        {{ 'حفظ التعديلات' if mode=='edit' else 'حفظ وإنشاء التعاقد' }}
+      </button>
+      <a class="btn" href="{{ url_for('dashboard') }}">إلغاء</a>
+      <div class="spacer"></div>
+      {% if errors %}<span class="msg" style="color:var(--red);font-size:12px;font-weight:700">يرجى تصحيح الحقول المطلوبة</span>{% endif %}
+    </div>
+  </div>
+
+  <!-- المعاينة الحيّة -->
+  <div class="preview-wrap">
+    <div class="preview-card">
+      <div class="preview-h">
+        <span class="dot"></span> معاينة مباشرة للمستند
+        <span class="spacer"></span>
+        <span class="badge">A4</span>
+      </div>
+      <div class="preview-body">
+        <div class="preview-stage" id="previewStage">
+          <iframe id="previewFrame" src="{{ url_for('embed_contract', id_=c.id) if mode=='edit' else 'about:blank' }}" title="معاينة"></iframe>
+        </div>
+      </div>
+    </div>
+    <div class="card" style="margin-top:14px">
+      <div class="card-b" style="padding:14px 16px">
+        <div class="note">
+          <b>ملاحظة:</b> المستند يُصدر بمقاس 8.5 × 11 بوصة بنفس تنسيق تصريح «تعاقد أجير» المعتمد،
+          ويحتوي على رمز QR للتحقق من صحة التصريح.
+        </div>
+      </div>
+    </div>
+  </div>
+</form>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function(){
+  var form = document.getElementById('cform');
+  var frame = document.getElementById('previewFrame');
+  var timer = null;
+
+  function collect(){
+    var fd = new FormData(form);
+    var o = {};
+    fd.forEach(function(v,k){ o[k] = v; });
+    return o;
+  }
+
+  function render(){
+    var data = collect();
+    fetch('{{ url_for("preview") }}', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify(data)
+    }).then(function(r){ return r.text(); })
+      .then(function(html){
+        frame.srcdoc = html;
+      }).catch(function(){});
+  }
+
+  function schedule(){
+    clearTimeout(timer);
+    timer = setTimeout(render, 320);
+  }
+
+  form.querySelectorAll('input, textarea, select').forEach(function(el){
+    el.addEventListener('input', schedule);
+    el.addEventListener('change', schedule);
+  });
+
+  // أول معاينة
+  frame.addEventListener('load', function(){
+    if (frame.getAttribute('src')) { frame.removeAttribute('src'); }
+  }, {once:true});
+  render();
+})();
+</script>
+{% endblock %}

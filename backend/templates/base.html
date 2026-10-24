@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}منصة إدارة العقود{% endblock %} — تعاقد أجير</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230b2545'/%3E%3Cpath d='M20 44V26c0-6 5-10 12-10s12 4 12 10v18' stroke='%2313a09a' stroke-width='6' fill='none' stroke-linecap='round'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
+{% block head %}{% endblock %}
+</head>
+<body>
+<div class="shell">
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-logo"><img src="{{ url_for('static', filename='img/ajeer_logo.png') }}" alt="أجير"></div>
+      <div>
+        <b>تعاقد أجير</b>
+        <small>منصة إدارة وإنشاء العقود</small>
+      </div>
+    </div>
+
+    <nav class="nav">
+      <div class="nav-title">الرئيسية</div>
+      <a href="{{ url_for('dashboard') }}" class="{{ 'active' if page=='dashboard' }}">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/><rect x="3" y="14" width="7" height="7" rx="2"/><rect x="14" y="14" width="7" height="7" rx="2"/></svg>
+        لوحة التحكم
+      </a>
+      <a href="{{ url_for('dashboard') }}#contracts" class="{{ 'active' if page=='contracts' }}">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M8 3h8l4 4v14H4V3h4z" transform="translate(0 -1)"/><path d="M8 12h8M8 16h5"/></svg>
+        التعاقدات
+      </a>
+      <a href="{{ url_for('new_contract') }}" class="{{ 'active' if page=='new' }}">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg>
+        إنشاء تعاقد
+      </a>
+
+      <div class="nav-title">أدوات</div>
+      <a href="{{ url_for('settings_page') }}" class="{{ 'active' if page=='settings' }}">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-2.9 1.2V21a2 2 0 1 1-4 0v-.1A1.7 1.7 0 0 0 7 19.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1A1.7 1.7 0 0 0 3 13.6H3a2 2 0 1 1 0-4h.1A1.7 1.7 0 0 0 4.7 7l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1A1.7 1.7 0 0 0 10 2.9V3a2 2 0 1 1 4 0v.1A1.7 1.7 0 0 0 17 4.7l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0 1.2 2.9z"/></svg>
+        الإعدادات
+      </a>
+      <a href="{{ url_for('verify', permit_no='TQ101515442') }}">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3l7 3v6c0 4.5-3 7.6-7 9-4-1.4-7-4.5-7-9V6l7-3z"/><path d="M9 12l2 2 4-4"/></svg>
+        التحقق من تصريح
+      </a>
+      <a href="{{ url_for('health') }}" target="_blank">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 12h4l2-6 4 12 2-6h6"/></svg>
+        حالة النظام
+      </a>
+    </nav>
+
+    <div class="side-foot">
+      <b>وزارة الموارد البشرية والتنمية الاجتماعية</b>
+      خدمة تعاقد أجير — إصدار وإدارة تصاريح العمل المؤقت
+    </div>
+  </aside>
+
+  <div class="main">
+    <header class="topbar">
+      <div>
+        <div class="crumb">{% block crumb %}الرئيسية{% endblock %}</div>
+        <h1>{% block heading %}لوحة التحكم{% endblock %}</h1>
+      </div>
+      <div class="spacer"></div>
+      {% block topactions %}{% endblock %}
+      <div class="avatar">ع</div>
+    </header>
+
+    <main class="content">
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+          {% for cat, m in messages %}
+            <div class="flash">{{ m }}</div>
+          {% endfor %}
+        {% endif %}
+      {% endwith %}
+      {% block content %}{% endblock %}
+    </main>
+  </div>
+</div>
+
+<div class="toast-wrap" id="toasts"></div>
+<script>
+  window.AJEER = { today: '{{ today.isoformat() }}' };
+  function toast(msg){
+    var w = document.getElementById('toasts');
+    var d = document.createElement('div');
+    d.className = 'toast'; d.textContent = msg; w.appendChild(d);
+    setTimeout(function(){ d.style.opacity='0'; d.style.transform='translateY(6px)'; d.style.transition='.3s'; }, 2200);
+    setTimeout(function(){ d.remove(); }, 2600);
+  }
+  /* يجعل أي iframe للمستند يملأ عرض الحاوية بنسبة صحيحة */
+  function fitDocFrame(frame){
+    var stage = frame.parentElement;
+    var w = stage.clientWidth;
+    var k = w / 816;
+    frame.style.transform = 'scale(' + k + ')';
+    stage.style.height = (1056 * k) + 'px';
+  }
+  document.addEventListener('DOMContentLoaded', function(){
+    document.querySelectorAll('.preview-stage iframe, .doc-frame iframe').forEach(function(f){
+      var run = function(){ fitDocFrame(f); };
+      if (f.complete) run();
+      f.addEventListener('load', run);
+      run();
+      window.addEventListener('resize', run);
+      if (window.ResizeObserver) new ResizeObserver(run).observe(f.parentElement);
+    });
+  });
+</script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

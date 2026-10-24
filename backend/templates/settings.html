@@ -1,0 +1,65 @@
+{% extends 'base.html' %}
+{% block title %}الإعدادات{% endblock %}
+{% block crumb %}الرئيسية / الإعدادات{% endblock %}
+{% block heading %}إعدادات المنصة{% endblock %}
+
+{% block content %}
+<form method="post" class="settings-grid">
+  <div class="card">
+    <div class="card-h"><h2>البيانات الافتراضية للعقود</h2></div>
+    <div class="card-b">
+      <div class="fields">
+        <div class="field full">
+          <label for="org_name">اسم الجهة / الإدارة</label>
+          <input id="org_name" name="org_name" value="{{ settings.org_name }}">
+          <div class="tip">يظهر في ترويسة المنصة فقط، ولا يظهر داخل المستند.</div>
+        </div>
+        <div class="field full">
+          <label for="verify_domain">النطاق المستخدم في التحقق ورابط QR</label>
+          <input id="verify_domain" name="verify_domain" value="{{ settings.verify_domain }}" dir="ltr" style="text-align:right">
+          <div class="tip">مثال: https://ajeer.com.sa — يُبنى عليه رابط التحقق <span dir="ltr">/verify/رقم-التصريح</span></div>
+        </div>
+        <div class="field">
+          <label for="default_provider_name">المنشأة المقدمة للخدمة (افتراضي)</label>
+          <input id="default_provider_name" name="default_provider_name" value="{{ settings.default_provider_name }}">
+        </div>
+        <div class="field">
+          <label for="default_provider_no">رقم المنشأة (افتراضي)</label>
+          <input id="default_provider_no" name="default_provider_no" value="{{ settings.default_provider_no }}" dir="ltr" style="text-align:right">
+        </div>
+        <div class="field">
+          <label for="default_site">موقع العمل الافتراضي</label>
+          <input id="default_site" name="default_site" value="{{ settings.default_site }}">
+        </div>
+      </div>
+    </div>
+    <div class="form-foot">
+      <button class="btn btn-primary" type="submit">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 13l4 4L19 7"/></svg>
+        حفظ الإعدادات
+      </button>
+    </div>
+  </div>
+
+  <div>
+    <div class="card">
+      <div class="card-h"><h2>حول المستند</h2></div>
+      <div class="card-b">
+        <div class="note">
+          <p style="margin:0 0 10px">يُولَّد مستند «تعاقد أجير» بمقاس <b>8.5 × 11 بوصة</b> بنفس تنسيق النموذج المعتمد، ويشمل:</p>
+          <ul style="margin:0;padding-inline-start:18px;line-height:2">
+            <li>ترويسة رسمية مع الشعار ورمز QR ورقم التصريح.</li>
+            <li>جدول بيانات العامل ومقدم الخدمة والمستفيد والتصريح.</li>
+            <li>نص الإقرارات المعتمد.</li>
+            <li>تذييل التحقق وخدمة وزارة الموارد البشرية.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+    <div class="tipbox" style="margin-top:16px">
+      <b>نصيحة:</b> عند الطباعة من المتصفح اختر مقاس الورق <b>Letter</b> وهوامش <b>None</b> لضمان تطابق التنسيق.
+      أو استخدم زر «تحميل PDF» للحصول على ملف مطابق تماماً بمقاس 612×792 نقطة.
+    </div>
+  </div>
+</form>
+{% endblock %}

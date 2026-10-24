@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>تعاقد أجير — {{ c.permit_no }}</title>
+<style>
+@font-face{font-family:'Almarai';src:url('{{ assets }}fonts/Almarai-Regular.ttf') format('truetype');font-weight:400;font-style:normal}
+@font-face{font-family:'Almarai';src:url('{{ assets }}fonts/Almarai-Bold.ttf') format('truetype');font-weight:700;font-style:normal}
+@font-face{font-family:'Almarai';src:url('{{ assets }}fonts/Almarai-Light.ttf') format('truetype');font-weight:300;font-style:normal}
+
+@page{size:8.5in 11in;margin:0}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;background:#e9edf3}
+body{font-family:'Almarai',sans-serif;-webkit-font-smoothing:antialiased}
+
+.page{
+  position:relative;
+  width:612pt;height:792pt;
+  background:#fff;color:#2e2e2e;
+  overflow:hidden;
+  transform-origin:top center;
+  margin:0 auto;
+}
+
+/* ============ HEADER BOX ============ */
+.hdr{position:absolute;left:59.5pt;top:27.8pt;width:506pt;height:79.6pt;border:0.7pt solid #d9dde2}
+
+.qr{position:absolute;left:69.5pt;top:29.9pt;width:59.1pt;height:49.5pt}
+.qr img{width:100%;height:100%;display:block}
+
+.tq{position:absolute;left:60pt;top:84pt;width:78pt;text-align:center;
+    font-size:10.5pt;line-height:12pt;color:#333;letter-spacing:.1pt}
+.scan{position:absolute;left:60pt;top:97.6pt;width:78pt;text-align:center;
+    font-size:6.6pt;line-height:8pt;color:#4c4c4c}
+
+.title{position:absolute;left:170pt;top:60.8pt;width:245pt;text-align:center;
+    font-size:12.4pt;font-weight:700;color:#111;line-height:15pt}
+
+.logo{position:absolute;left:406pt;top:50pt;width:157pt;height:36pt}
+.logo img{width:100%;height:100%;object-fit:contain;display:block}
+
+/* ============ INTRO ============ */
+.intro{position:absolute;left:71.7pt;top:130.4pt;width:493.8pt;
+  font-size:9.2pt;line-height:13.5pt;text-align:right;color:#2e2e2e}
+
+/* ============ TABLE ============ */
+.docbody{position:absolute;left:58.45pt;top:185.3pt;width:509.8pt}
+table.t{width:509.8pt;border-collapse:collapse;table-layout:fixed}
+table.t td{border:0.7pt solid #d9dde2;vertical-align:middle;padding:0 2pt;
+  font-size:8.5pt;line-height:11.6pt;text-align:right;font-weight:400;color:#2b2b2b}
+table.t td.lbl{padding-right:6pt;color:#2f3336}
+table.t td.fill{background:#ecf0f1}
+table.t td.val{background:#ffffff}
+table.t td.v1{padding-right:8.2pt}
+tr.sec td{background:#ecf0f1;font-weight:700;color:#111;text-align:center;font-size:8.9pt}
+col.c1{width:127.45pt}col.c2{width:127.45pt}col.c3{width:127.45pt}col.c4{width:127.45pt}
+tr.h22 td{height:22.4pt}
+tr.h23a td{height:23.0pt}
+tr.h23b td{height:22.9pt}
+tr.h18a td{height:18.2pt}tr.h18b td{height:17.6pt}tr.h18c td{height:17.7pt}tr.h18d td{height:18.1pt}
+tr.h28a td{height:28.2pt}tr.h28b td{height:27.8pt}
+tr.h17 td{height:17.7pt}
+table.t td.lbl{line-height:11.2pt}
+
+/* ============ DECLARATIONS ============ */
+.decl{position:absolute;left:66.6pt;top:430.3pt;width:494.9pt}
+.decl h3{margin:0;text-align:center;font-size:9.3pt;line-height:13pt;font-weight:700;color:#111}
+.promise{margin:8.6pt 0 0;text-align:right;font-weight:700;font-size:9pt;line-height:13pt;color:#111}
+.bullets{margin:3.4pt 0 0}
+.bullets p{margin:0 0 3.2pt;text-align:right;font-size:9.4pt;line-height:13.6pt;color:#2b2b2b}
+.bullets p:last-child{margin-bottom:0}
+.bullets .dot{font-size:9.4pt;margin-left:0}
+
+/* ============ FOOTER ============ */
+.foot{position:absolute;left:58.1pt;top:738.4pt;width:509.3pt;text-align:center}
+.foot .l1{font-size:9.2pt;line-height:13pt;color:#333}
+.foot .l2{font-size:9.3pt;line-height:13pt;color:#333;margin-top:2pt}
+
+/* ============ SCREEN (preview) ============ */
+body.embed{background:#fff}
+body.screen{background:#eef1f6;display:flex;justify-content:center;align-items:flex-start;min-height:100vh}
+body.screen .page{box-shadow:0 8px 30px rgba(20,35,63,.18);margin-top:0}
+@media print{
+  body{background:#fff}
+  .page{box-shadow:none!important}
+  html,body{width:612pt;height:792pt}
+}
+</style>
+</head>
+<body class="{{ mode }}">
+<div class="page" id="page">
+
+  <!-- HEADER -->
+  <div class="hdr"></div>
+  <div class="qr"><img src="{{ c.qr }}" alt="QR"></div>
+  <div class="tq">{{ c.permit_no }}</div>
+  <div class="scan">امسح للتحقق</div>
+  <div class="title">تعاقد اجير</div>
+  <div class="logo"><img src="{{ assets }}img/ajeer_logo.png" alt="Ajeer"></div>
+
+  <!-- INTRO -->
+  <div class="intro">نشعركم أنه تم التعاقد من قبلنا كجهة مقدمة للخدمة مع الجهة المستفيدة من الخدمة حسب المعلومات المبينة أدناه، ولذلك تم تسجيل معلومات العقد لتكون بحوزة العامل لإثبات عدم مخالفته لنظام العمل ولتقديمها إلى من يهمه الأمر من الجهات المختصة عند طلبها للتحقق من صحة تواجده في مكان تقديم الخدمة</div>
+
+  <!-- TABLE -->
+  <div class="docbody">
+    <table class="t">
+      <colgroup><col class="c1"><col class="c2"><col class="c3"><col class="c4"></colgroup>
+      <tr class="sec h22"><td colspan="4">بيانات العامل</td></tr>
+      <tr class="h18a">
+        <td class="lbl fill">اسم العامل</td>
+        <td class="val">{{ c.worker_name }}</td>
+        <td class="lbl fill">المهنة</td>
+        <td class="val v1">{{ c.nationality }}</td>
+      </tr>
+      <tr class="h18b">
+        <td class="lbl fill">رقم الهوية / الإقامة</td>
+        <td class="val">{{ c.id_no }}</td>
+        <td class="lbl fill">الجنسية</td>
+        <td class="val v1">{{ c.profession }}</td>
+      </tr>
+
+      <tr class="sec h23a"><td colspan="4">بيانات مقدم الخدمة</td></tr>
+      <tr class="h28a">
+        <td class="lbl fill">المنشأة المقدمة للخدمة</td>
+        <td class="val">{{ c.provider_name }}</td>
+        <td class="lbl fill">رقم المنشأة في وزارة الموارد البشرية والتنمية الاجتماعية</td>
+        <td class="val v1">{{ c.provider_no }}</td>
+      </tr>
+
+      <tr class="sec h23b"><td colspan="4">بيانات المستفيد من الخدمة</td></tr>
+      <tr class="h28b">
+        <td class="lbl fill">المنشأة المستفيدة من الخدمة</td>
+        <td class="val">{{ c.beneficiary_name }}</td>
+        <td class="lbl fill">رقم المنشأة في وزارة الموارد البشرية والتنمية الاجتماعية</td>
+        <td class="val v1">{{ c.beneficiary_no }}</td>
+      </tr>
+
+      <tr class="sec h23b"><td colspan="4">بيانات التصريح</td></tr>
+      <tr class="h18c">
+        <td class="lbl fill">تاريخ بداية التصريح</td>
+        <td class="val">{{ c.start_date }}</td>
+        <td class="lbl fill">تاريخ نهاية التصريح</td>
+        <td class="val v1">{{ c.end_date }}</td>
+      </tr>
+      <tr class="h18d">
+        <td class="lbl fill">نبذة عن التعاقد</td>
+        <td class="val" colspan="3">{{ c.description }}</td>
+      </tr>
+      <tr class="h17">
+        <td class="lbl fill">مواقع العمل</td>
+        <td class="val" colspan="3">{{ c.site }}</td>
+      </tr>
+    </table>
+  </div>
+
+  <!-- DECLARATIONS -->
+  <div class="decl">
+    <h3>إقرارات</h3>
+    <div class="promise">أقر أنا المنشأة المقدمة للخدمة والموضحة بياناتي أعلاه وأتعهد بـ:</div>
+    <div class="bullets">
+      <p><span class="dot">•</span> إن العامل حامل هذا التصريح بحمله له يقر ويتعهد بأن البيانات المدونة فيه صحيحة على مسؤوليته الشخصية، وأنه يعمل لدى المنشأة ولحسابها، بموجب رخصة إقامة سارية المفعول. وأتحمل أي تبعات قانونية أو غرامات تترتب على خلاف المذكور أعلاه.</p>
+      <p><span class="dot">•</span> الالتزام والتقيّد بأنظمة العمل والعمال وأي أنظمة ولوائح وقرارات أخرى ذات علاقة.</p>
+      <p><span class="dot">•</span> أن الموقع الإلكتروني الخاص بأجير أو القائمين عليه عبارة عن وسيط إلكتروني ما بين الباحثين عن العمل وأصحاب الأعمال فقط وبدون أي التزام قانوني أو غيره على القائمين على موقع أجير.</p>
+      <p><span class="dot">•</span> أي تعديل أو كشف في هذا التصريح يجعله لاغياً.</p>
+    </div>
+  </div>
+
+  <!-- FOOTER -->
+  <div class="foot">
+    <div class="l1">للتحقق من صحة هذا التصريح وسريان مفعوله بإمكانك زيارة موقع أجير ({{ c.verify_domain }})</div>
+    <div class="l2">* خدمة معتمدة من وزارة الموارد البشرية والتنمية الاجتماعية *</div>
+  </div>
+
+</div>
+{% if mode == 'print' and auto_print %}
+<script>window.addEventListener('load', function(){ setTimeout(function(){ window.print(); }, 350); });</script>
+{% endif %}
+</body>
+</html>
