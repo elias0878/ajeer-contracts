@@ -265,6 +265,12 @@ def details_pairs(d):
             v = '، '.join(f'{DETAIL_LABELS.get(kk, kk)}: {vv}' for kk, vv in v.items())
         elif isinstance(v, bool):
             v = 'نعم' if v else 'لا'
+        else:
+            sv = str(v)
+            if re.match(r'^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}', sv):
+                d = auth._parse_dt(sv)
+                if d:
+                    v = d.astimezone(timezone(timedelta(hours=3))).strftime('%Y-%m-%d')
         out.append((DETAIL_LABELS.get(k, k), str(v)))
     return out
 
