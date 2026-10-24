@@ -40,6 +40,20 @@
 |---|---|
 | ![form](docs/screenshots/new-contract.png) | ![pdf](docs/screenshots/pdf-preview.png) |
 
+### 🛡️ لوحة الإدارة (نظام المستخدمين والصلاحيات)
+
+| تسجيل الدخول | إدارة المستخدمين |
+|---|---|
+| ![login](docs/screenshots/login.png) | ![admin](docs/screenshots/admin-users.png) |
+
+| إنشاء مستخدم + مصفوفة الصلاحيات | مصفوفة تغطية الصلاحيات |
+|---|---|
+| ![modal](docs/screenshots/admin-user-modal.png) | ![perms](docs/screenshots/admin-permissions.png) |
+
+| سجل النشاط (Audit) | حسابي وكلمة المرور |
+|---|---|
+| ![audit](docs/screenshots/admin-audit.png) | ![account](docs/screenshots/account.png) |
+
 ---
 
 ## 🧱 المعمارية
