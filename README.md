@@ -4,7 +4,7 @@
 
 **نظام ويب عربي (RTL) لإدارة العقود وتصاريح العمل، يولّد مستند PDF مطابقاً للنموذج الرسمي حرفياً.**
 
-[![Vercel](https://img.shields.io/badge/Vercel-Live-000?logo=vercel&logoColor=white)](https://ajeer-contracts.vercel.app)
+[![Live](https://img.shields.io/badge/Live-ajeer--contracts--app.vercel.app-13a09a?logo=vercel&logoColor=white)](https://ajeer-contracts-app.vercel.app)
 [![Supabase](https://img.shields.io/badge/Supabase-PostgreSQL-3ECF8E?logo=supabase&logoColor=white)](https://supabase.com)
 [![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)](https://python.org)
 
@@ -51,6 +51,20 @@ ajeer-contracts/
 │   └── static/             # CSS + خطوط Almarai + الشعار
 └── scripts/
 ```
+
+---
+
+## 🌐 الروابط الحيّة
+
+| الوجهة | الرابط |
+|---|---|
+| 🏠 **المنصة** | **https://ajeer-contracts-app.vercel.app** |
+| 🔐 لوحة التحكم | https://ajeer-contracts-app.vercel.app/ |
+| ➕ إنشاء تعاقد | https://ajeer-contracts-app.vercel.app/contracts/new |
+| 📄 مستند PDF | https://ajeer-contracts-app.vercel.app/contracts/1/pdf |
+| ✅ التحقق (QR) | https://ajeer-contracts-app.vercel.app/verify/TQ101515442 |
+| ❤️ حالة النظام | https://ajeer-contracts-app.vercel.app/api/health |
+| 💻 الكود المصدري | https://github.com/elias0878/ajeer-contracts |
 
 ---
 
@@ -115,7 +129,7 @@ cd backend && python app.py     # http://localhost:5000
 | `SUPABASE_URL` | `https://<ref>.supabase.co` |
 | `SUPABASE_SERVICE_KEY` | مفتاح service_role (سري) |
 | `SECRET_KEY` | مفتاح تشفير جلسات Flask |
-| `PUBLIC_BASE_URL` | رابط الموقع العام (اختياري) |
+| `PUBLIC_BASE_URL` | `https://ajeer-contracts-app.vercel.app` |
 
 ---
 
