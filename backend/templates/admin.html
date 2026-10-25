@@ -333,6 +333,7 @@
       <option value="users." {{ 'selected' if aact=='users.' }}>المستخدمون</option>
       <option value="permissions." {{ 'selected' if aact=='permissions.' }}>الصلاحيات</option>
       <option value="settings." {{ 'selected' if aact=='settings.' }}>الإعدادات</option>
+      <option value="security." {{ 'selected' if aact=='security.' }}>محاولات محجوبة</option>
     </select>
     <button class="btn" type="submit">تصفية</button>
     <div class="spacer" style="flex:1"></div>
@@ -355,7 +356,7 @@
       <tr>
         <td style="white-space:nowrap;color:var(--muted);font-size:11.5px">{{ a.created_at|dt }}</td>
         <td style="white-space:nowrap"><b style="font-size:12px">{{ a.actor_email }}</b></td>
-        <td><span class="badge {{ 'b-off' if 'delete' in a.action else ('b-on' if 'create' in a.action else ('b-admin' if 'users' in a.action or 'permissions' in a.action else 'b-mut')) }}">{{ action_label(a.action) }}</span></td>
+        <td><span class="badge {{ 'b-off' if a.action.startswith('security.') else ('b-off' if 'delete' in a.action else ('b-on' if 'create' in a.action else ('b-admin' if 'users' in a.action or 'permissions' in a.action else 'b-mut'))) }}">{{ action_label(a.action) }}</span></td>
         <td style="color:var(--muted);font-size:11.5px;white-space:nowrap">{{ entity_label(a.entity) }}{% if a.entity_id %} #{{ a.entity_id }}{% endif %}</td>
         <td style="max-width:380px">
           {% set pairs = details_pairs(a.details) %}

@@ -315,6 +315,10 @@ ACTION_LABELS = {
     'users.activate': 'تفعيل حساب', 'users.deactivate': 'تعطيل حساب',
     'permissions.update': 'تعديل الصلاحيات', 'settings.update': 'تعديل الإعدادات',
     'system.bootstrap': 'تهيئة النظام',
+    'security.denied': 'محاولة وصول محجوبة',
+    'security.throttle': 'حجب مؤقت (محاولات كثيرة)',
+    'auth.login_failed': 'محاولة دخول فاشلة',
+    'verify.view': 'فتح رابط تحقق',
 }
 DETAIL_LABELS = {
     'email': 'البريد', 'new_email': 'البريد الجديد', 'role': 'الدور',
@@ -327,6 +331,8 @@ DETAIL_LABELS = {
     'org_name': 'اسم المنصة', 'verify_domain': 'نطاق التحقق',
     'default_provider_name': 'المقدم الافتراضي', 'default_provider_no': 'رقم المقدم',
     'default_site': 'الموقع الافتراضي',
+    'ip': 'العنوان', 'ua': 'المتصفح', 'method': 'الطريقة',
+    'reason': 'السبب', 'found': 'موجود', 'action': 'الإجراء',
 }
 
 
@@ -335,7 +341,8 @@ def action_label(a):
 
 
 ENTITY_LABELS = {'user': 'مستخدم', 'contract': 'تعاقد', 'settings': 'إعدادات',
-                 'permission': 'صلاحية', 'system': 'النظام'}
+                 'permission': 'صلاحية', 'system': 'النظام', 'route': 'مسار',
+                 'auth': 'دخول', 'auth_email': 'بريد محاولة دخول'}
 
 
 def entity_label(e):
