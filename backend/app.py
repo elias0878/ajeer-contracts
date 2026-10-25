@@ -72,6 +72,16 @@ def base_url():
     return PUBLIC_BASE or request.url_root.rstrip('/')
 
 
+HIJRI_EPOCH = 579  # 622 م - 43 فرق التقويمين ≈ 579
+
+
+def hijri_year(d=None):
+    """تقدير تقريبي للسنة الهجرية (يكفي لعرض حقوق النشر)."""
+    d = d or date.today()
+    jd = (d.year * 365.25) + ((datetime(d.year, d.month, d.day) - datetime(d.year, 1, 1)).days)
+    return int((jd - 1948084) / 354.367) + 1 if False else int((d.year - 622) * 1.0307) + 1
+
+
 DEFAULT_VERIFY_DOMAIN = ''          # فارغ = نطاق التطبيق الحالي
 DEFAULT_VERIFY_PATH = '/agiar/index.php'
 
@@ -685,7 +695,8 @@ def settings_page():
     db = get_db()
     if request.method == 'POST':
         changes = {}
-        for k in ('org_name', 'verify_domain', 'verify_path', 'default_provider_name',
+        for k in ('org_name', 'verify_domain', 'verify_path', 'verify_title',
+                  'verify_partners', 'default_provider_name',
                   'default_provider_no', 'default_site'):
             v = (request.form.get(k) or '').strip()
             if v:
@@ -1072,6 +1083,25 @@ def _lookup_verify(key):
     return c or db.get_by_permit(key)
 
 
+def _render_verify(key):
+    s = settings()
+    lang = request.args.get('lang') or s.get('verify_lang') or 'ar'
+    lang = 'en' if str(lang).lower().startswith('en') else 'ar'
+    c = _lookup_verify(key)
+    status = status_of(c) if c else ('unknown', 'غير موجود')
+    partners = [u.strip() for u in (s.get('verify_partners') or '').split(',') if u.strip()]
+    default_partners = [url_for('static', filename='img/takaml.png'),
+                        url_for('static', filename='img/mlsd-logo.png')]
+    resp = render_template('verify.html', c=c, status=status, settings=s, page='verify',
+                           verify_key=key, lang=lang, partners=partners,
+                           default_partners=default_partners,
+                           title=s.get('verify_title') or 'تصريح أُجْير لحُلول الموارد البشرية',
+                           hijri_year=hijri_year(),
+                           hijri_year_ar=hijri_year().__str__().translate(
+                               str.maketrans('0123456789', '٠١٢٣٤٥٦٧٨٩')))
+    return (resp, 200) if (c or not key) else (resp, 404)
+
+
 @app.route('/agiar/index.php')
 @app.route('/agiar/')
 @app.route('/agiar')
@@ -1081,20 +1111,12 @@ def verify_gateway():
            or request.args.get('token') or request.args.get('code') or '').strip()
     if key.startswith('http'):
         key = key.split('id=')[-1]
-    c = _lookup_verify(key)
-    status = status_of(c) if c else ('unknown', 'غير موجود')
-    resp = render_template('verify.html', c=c, status=status, settings=settings(),
-                           verify_key=key, page='verify')
-    return (resp, 200) if (c or not key) else (resp, 404)
+    return _render_verify(key)
 
 
 @app.route('/verify/<key>')
 def verify(key):
-    c = _lookup_verify(key)
-    status = status_of(c) if c else ('unknown', 'غير موجود')
-    resp = render_template('verify.html', c=c, status=status, settings=settings(),
-                           verify_key=key, page='verify')
-    return (resp, 200) if (c or not key) else (resp, 404)
+    return _render_verify(key)
 
 
 @app.route('/api/qr/<permit_no>.png')
