@@ -54,6 +54,10 @@
 |---|---|
 | ![audit](docs/screenshots/admin-audit.png) | ![account](docs/screenshots/account.png) |
 
+| صفحة التحقق التي يفتحها رمز QR |
+|---|
+| ![verify](docs/screenshots/verify-page.png) |
+
 ---
 
 ## 🧱 المعمارية
