@@ -24,10 +24,20 @@ COOKIE_NAME = 'aj_session'
 SESSION_DAYS = 30
 SCRYPT_N, SCRYPT_R, SCRYPT_P, SCRYPT_LEN = 16384, 8, 1, 64
 
-_PUBLIC_ENDPOINTS = {
-    'static', 'login', 'logout', 'verify', 'health', 'qr_png',
-    'not_found', 'server_error', 'favicon',
+# المسارات الوحيدة المتاحة بدون تسجيل دخول:
+#   • صفحة الدخول/الخروج
+#   • صفحة التحقق التي يفتحها رمز QR  (/agiar/index.php?id=…)
+#   • روابط التحقق القديمة /verify/<token>
+#   • الملفات الثابتة (CSS/خطوط/شعارات) اللازمة لعرض صفحة التحقق
+#   • robots.txt و favicon
+PUBLIC_ENDPOINTS = {
+    'static', 'login', 'logout',
+    'verify_gateway', 'verify',
+    'robots_txt', 'favicon',
 }
+
+# بادئات لا تُسجَّل محاولاتها (ملفات ثابتة / متصفح)
+_NOISE_PREFIXES = ('/static/', '/robots.txt', '/favicon.ico', '/.well-known/')
 
 
 # ------------------------------------------------------------------ hashing
@@ -111,29 +121,28 @@ def _extract_token():
 
 # ------------------------------------------------------------------ user ctx
 def load_current_user():
-    """يُستدعى في before_request — يملأ g.user/g.perms."""
+    """يُستدعى في before_request — يملأ g.user / g.perms باستعلام واحد."""
     g.user = None
     g.perms = set()
-    if request.endpoint in _PUBLIC_ENDPOINTS and request.endpoint != 'verify':
+    g.session_token = None
+    if request.path.startswith('/static/'):
         return
-    if request.path.startswith('/static/') or request.path.startswith('/api/health'):
-        return
-    token = request.cookies.get(COOKIE_NAME) or _bearer()
+    token = (request.cookies.get(COOKIE_NAME) or _bearer()
+             or (request.args.get('token') if request.path.startswith('/api/') else None))
     if not token:
         return
     th = token_hash(token)
     try:
-        sess = store.get_session(th)
+        sess, user = store.get_session_with_user(th)
     except Exception:
         return
     if not sess:
         return
     try:
-        exp = _parse_dt(sess['expires_at'])
+        exp = _parse_dt(sess.get('expires_at'))
         if exp and exp < datetime.now(timezone.utc):
             store.delete_session(th)
             return
-        user = store.get_user(sess['user_id'])
     except Exception:
         return
     if not user or not user.get('is_active'):
@@ -142,7 +151,8 @@ def load_current_user():
         return
     g.user = user
     g.session_token = th
-    g.perms = set(PERMISSION_KEYS) if user.get('role') == 'owner' else set(store.get_permissions(user['id']))
+    g.perms = (set(PERMISSION_KEYS) if user.get('role') == 'owner'
+               else set(store.get_permissions(user['id'])))
     store.touch_session(th)
 
 
@@ -162,6 +172,59 @@ def _parse_dt(v):
         return d if d.tzinfo else d.replace(tzinfo=timezone.utc)
     except Exception:
         return None
+
+
+def is_public_endpoint():
+    if request.endpoint in PUBLIC_ENDPOINTS:
+        return True
+    return request.path.startswith('/static/')
+
+
+def gate():
+    """بوابة مركزية: كل ما ليس عاماً يتطلب جلسة صحيحة — وإلا يُحجب فوراً."""
+    if request.method == 'OPTIONS':
+        return None
+    if is_public_endpoint():
+        return None
+    if current_user():
+        return None
+    # مسار محمي أو غير معروف بدون جلسة → لا نكشف وجوده
+    if request.path.startswith('/api/') or wants_json():
+        return jsonify(error='يجب تسجيل الدخول للمتابعة', code='AUTH_REQUIRED'), 401
+    target = request.full_path if request.query_string else request.path
+    if not target.startswith('/') or target.startswith('//'):
+        target = '/'
+    return redirect(url_for('login', next=target))
+
+
+_denied_cache = {}
+DENIED_LOG_TTL = 600  # ثانية — نفس العنوان مرة واحدة كل 10 دقائق
+
+
+def log_denied(reason='AUTH_REQUIRED'):
+    """تسجيل محاولة وصول غير مصرّح بها (مع خنق لمنع إغراق السجل)."""
+    import time as _t
+    path = (request.path or '/')[:120]
+    if path.startswith(_NOISE_PREFIXES):
+        return
+    ip = _client_ip()
+    key = (ip, path, reason)
+    now = _t.time()
+    if len(_denied_cache) > 2000:
+        for k, v in list(_denied_cache.items()):
+            if now - v > DENIED_LOG_TTL:
+                _denied_cache.pop(k, None)
+    last = _denied_cache.get(key)
+    if last and now - last < DENIED_LOG_TTL:
+        return
+    _denied_cache[key] = now
+    try:
+        store.add_audit(None, 'system', 'security.denied', 'route', path,
+                        {'method': request.method, 'reason': reason,
+                         'ip': ip,
+                         'ua': (request.headers.get('User-Agent') or '')[:120]})
+    except Exception:
+        pass
 
 
 def current_user():

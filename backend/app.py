@@ -11,6 +11,7 @@ import secrets
 import random
 import re
 import string
+import time
 from datetime import date, datetime, timedelta, timezone
 
 from flask import (Flask, abort, flash, g, jsonify, redirect, render_template,
@@ -225,7 +226,7 @@ def my_contracts(q=None):
 # ---------------------------------------------------------------- auth hooks
 @app.before_request
 def _before():
-    if request.endpoint == 'static':
+    if request.endpoint == 'static' or request.path.startswith('/static/'):
         return
     try:
         ensure_bootstrap()
@@ -238,6 +239,46 @@ def _before():
         except Exception:
             pass
     auth.load_current_user()
+
+
+@app.before_request
+def _gate():
+    """حجب كل المسارات غير العامة قبل أي معالجة."""
+    if request.endpoint == 'static' or request.path.startswith('/static/'):
+        return
+    blocked = auth.gate()
+    if blocked is not None:
+        try:
+            if request.method in ('GET', 'HEAD') and not auth.current_user():
+                auth.log_denied('AUTH_REQUIRED')
+        except Exception:
+            pass
+        return blocked
+    u = auth.current_user()
+    if u is None and request.endpoint in auth.PUBLIC_ENDPOINTS:
+        return
+    return None
+
+
+@app.after_request
+def _security_headers(resp):
+    """ترويسات أمان على كل الاستجابات."""
+    resp.headers.setdefault('X-Content-Type-Options', 'nosniff')
+    resp.headers.setdefault('X-Frame-Options', 'SAMEORIGIN')
+    resp.headers.setdefault('Referrer-Policy', 'no-referrer')
+    resp.headers.setdefault('Permissions-Policy',
+                            'geolocation=(), microphone=(), camera=(), payment=()')
+    resp.headers.setdefault('X-Robots-Tag', 'noindex, nofollow, noarchive, nosnippet')
+    if not request.path.startswith('/static/'):
+        resp.headers.setdefault(
+            'Content-Security-Policy',
+            "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; "
+            "script-src 'self' 'unsafe-inline'; font-src 'self'; connect-src 'self'; "
+            "frame-ancestors 'self'; base-uri 'none'; form-action 'self'")
+    if request.path.startswith('/api/') or auth.current_user():
+        resp.headers.setdefault('Cache-Control', 'no-store, private')
+    resp.headers.setdefault('Strict-Transport-Security', 'max-age=31536000; includeSubDomains')
+    return resp
 
 
 @app.template_filter('dt')
@@ -378,6 +419,17 @@ def login():
         if not email or not pw:
             err = 'يرجى إدخال البريد الإلكتروني وكلمة المرور'
         else:
+            ip = auth._client_ip()
+            try:
+                ip_fails = store.count_recent_failures('auth.login_failed', 'auth', ip, 15)
+                mail_fails = store.count_recent_failures('auth.login_failed', 'auth_email', email, 15)
+            except Exception:
+                ip_fails = mail_fails = 0
+            if ip_fails >= 12 or mail_fails >= 8:
+                log_audit('security.throttle', 'auth', email, {'ip': ip})
+                return render_template('login.html', email=email,
+                                       error='محاولات دخول كثيرة فاشلة. تم الحجب مؤقتاً لمدة 15 دقيقة '
+                                             'لحماية الحساب، حاول لاحقاً.'), 429
             try:
                 user = store.get_user_by_email(email)
             except Exception as e:
@@ -385,6 +437,14 @@ def login():
                                        'تأكد من إعداد قاعدة البيانات.', email=email), 503
             if not user or not auth.verify_password(pw, user.get('password_hash')):
                 err = 'البريد الإلكتروني أو كلمة المرور غير صحيحة'
+                try:
+                    store.add_audit(None, 'system', 'auth.login_failed', 'auth', ip,
+                                    {'email': email, 'ua': (request.headers.get('User-Agent') or '')[:120]})
+                    store.add_audit(None, 'system', 'auth.login_failed', 'auth_email', email,
+                                    {'ip': ip})
+                except Exception:
+                    pass
+                time.sleep(0.35)
             elif not user.get('is_active'):
                 err = 'هذا الحساب معطّل. يرجى التواصل مع مدير المنصة.'
             elif account_expired(user):
@@ -395,7 +455,9 @@ def login():
                 g.perms = set(PERMISSION_KEYS) if is_owner(user) else set(store.get_permissions(user['id']))
                 log_audit('auth.login', 'user', user['id'], {'email': email})
                 nxt = request.args.get('next') or request.form.get('next')
-                resp = redirect(nxt if nxt and nxt.startswith('/') else url_for('dashboard'))
+                if not (nxt and nxt.startswith('/') and not nxt.startswith('//')):
+                    nxt = url_for('dashboard')
+                resp = redirect(nxt)
                 auth.set_session_cookie(resp, token)
                 flash(f'أهلاً بك، {display_name(user)}', 'success')
                 return resp
@@ -1071,16 +1133,26 @@ def api_me():
 
 
 # ---------------------------------------------------------------- public
+MIN_TOKEN_LEN = 20
+
+
 def _lookup_verify(key):
-    """يدعم رمز التحقق الجديد (64 محرفاً) أو رقم التصريح القديم."""
+    """رمز التحقق العشوائي فقط للزوار.
+
+    البحث برقم التصريح مسموح للمستخدمين المسجّلين فقط، لمنع تخمين/تعداد
+    أرقام التصاريح من خارج المنصة.
+    """
     if not key:
         return None
-    key = key.strip()
+    key = key.strip()[:128]
     db = get_db()
-    c = None
-    if len(key) >= 20:
+    if len(key) >= MIN_TOKEN_LEN:
         c = db.get_by_token(key)
-    return c or db.get_by_permit(key)
+        if c:
+            return c
+    if auth.current_user():
+        return db.get_by_permit(key)
+    return None
 
 
 def _render_verify(key):
@@ -1120,16 +1192,22 @@ def verify(key):
 
 
 @app.route('/api/qr/<permit_no>.png')
+@login_required
 def qr_png(permit_no):
+    """صورة QR — محمية، وتُبنى دائماً من رابط التحقق الرسمي للتصريح فقط."""
     c = get_db().get_by_permit(permit_no)
-    target = request.args.get('target') or (verify_link(c) if c else '')
+    if not c:
+        abort(404)
+    target = verify_link(c)
     buf = io.BytesIO(qr_bytes(target))
     buf.seek(0)
     return send_file(buf, mimetype='image/png')
 
 
 @app.route('/api/health')
+@login_required
 def health():
+    """حالة النظام — للإدارة فقط (لا تُكشف أي معلومات عامة)."""
     db = get_db()
     try:
         n = db.count()
@@ -1145,6 +1223,17 @@ def health():
         return jsonify(status='error', backend=db.backend, detail=str(e)), 500
 
 
+@app.route('/robots.txt')
+def robots_txt():
+    return ('User-agent: *\nDisallow: /\n', 200,
+            {'Content-Type': 'text/plain; charset=utf-8'})
+
+
+@app.route('/favicon.ico')
+def favicon():
+    return ('', 204)
+
+
 @app.errorhandler(404)
 def not_found(e):
     return render_template('404.html', page=''), 404
@@ -1154,6 +1243,13 @@ def not_found(e):
 def forbidden(e):
     return render_template('error.html', page='', error='ليست لديك صلاحية للوصول إلى هذه الصفحة',
                            title='صلاحية غير كافية'), 403
+
+
+@app.errorhandler(429)
+def too_many(e):
+    return render_template('error.html', page='',
+                           error='محاولات كثيرة. يرجى المحاولة بعد قليل.',
+                           title='محاولات كثيرة'), 429
 
 
 @app.errorhandler(500)

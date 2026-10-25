@@ -42,6 +42,34 @@ def main():
     r = anon.post('/login', data={'email': 'admin@ajeer.sa', 'password': 'wrong-pass'})
     check('كلمة مرور خاطئة لا تفتح الجلسة',
           r.status_code == 200 and 'غير صحيحة' in r.get_data(as_text=True))
+
+    # --- بوابة الحجب: لا شيء عام إلا التحقق ---
+    protected = ['/', '/admin', '/admin?tab=audit', '/account', '/settings',
+                 '/contracts/1', '/contracts/1/edit', '/contracts/1/print',
+                 '/contracts/1/pdf', '/contracts/1/embed', '/contracts/new']
+    blocked = []
+    for path in protected:
+        rr = anon.get(path)
+        if not (rr.status_code == 302 and '/login' in rr.headers.get('Location', '')):
+            blocked.append(f'{path}={rr.status_code}')
+    check('كل صفحات المنصة محجوبة عن الزائر', not blocked, ', '.join(blocked))
+
+    apis = ['/api/health', '/api/me', '/api/admin/users', '/api/admin/audit',
+            '/api/qr/TQ101515442.png']
+    blocked_api = [f'{p}={anon.get(p).status_code}' for p in apis
+                   if anon.get(p).status_code != 401]
+    check('كل واجهات API محجوبة عن الزائر (401)', not blocked_api, ', '.join(blocked_api))
+
+    for path in ['/wp-admin', '/.env', '/random-path', '/config.php']:
+        rr = anon.get(path)
+        check(f'مسار غير موجود محجوب: {path}',
+              rr.status_code == 302 and '/login' in rr.headers.get('Location', ''))
+
+    r = anon.get('/robots.txt')
+    check('robots.txt يمنع الفهرسة', r.status_code == 200 and 'Disallow: /' in r.get_data(as_text=True))
+
+    r = anon.get('/verify/TQ101515442')
+    check('منع تخمين أرقام التصاريح من الخارج (404)', r.status_code == 404, str(r.status_code))
     r = client.post('/login', data={'email': 'admin@ajeer.sa', 'password': 'Ajeer@2026'})
     check('تسجيل دخول المالك', r.status_code == 302 and '/' in r.headers.get('Location', ''),
           str(r.status_code))
@@ -97,10 +125,11 @@ def main():
     r = client.get('/api/admin/audit')
     check('سجل النشاط متاح للمالك', r.status_code == 200 and len(r.get_json()) > 0)
 
-    # --- حالة النظام ---
+    # --- حالة النظام (للمسجّلين فقط) ---
     r = client.get('/api/health')
     js = r.get_json() or {}
-    check('GET /api/health', r.status_code == 200 and js.get('status') == 'ok', str(js))
+    check('GET /api/health (مسجّل)', r.status_code == 200 and js.get('status') == 'ok', str(js))
+    check('GET /api/health (زائر)', anon.get('/api/health').status_code == 401)
 
     # --- رابط التحقق الجديد: /agiar/index.php?id=<token> ---
     import re as _re

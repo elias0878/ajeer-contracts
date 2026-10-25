@@ -247,8 +247,39 @@ def get_session(token_hash):
     return dict(ren) if ren else None
 
 
-def touch_session(token_hash):
+def get_session_with_user(token_hash):
+    """جلسة + مستخدم باستعلام واحد (يقلّل زمن الاستجابة على PostgREST)."""
+    if USE_SUPABASE:
+        r = _rest('app_sessions', params={'token_hash': f'eq.{token_hash}',
+                                          'select': '*,app_users(*)'}) or []
+        if not r:
+            return None, None
+        row = r[0]
+        user = row.pop('app_users', None)
+        return row, user
+    row = _sql().execute('SELECT * FROM app_sessions WHERE token_hash=?', (token_hash,)).fetchone()
+    if not row:
+        return None, None
+    sess = dict(row)
+    user = get_user(sess['user_id'])
+    return sess, user
+
+
+def touch_session(token_hash, force=False):
     try:
+        if not force:
+            sess = get_session(token_hash)
+            last = (sess or {}).get('last_seen_at')
+            if last:
+                from datetime import datetime as _dt, timezone as _tz
+                try:
+                    d = _dt.fromisoformat(str(last).replace('Z', '+00:00'))
+                    if d.tzinfo is None:
+                        d = d.replace(tzinfo=_tz.utc)
+                    if (_dt.now(_tz.utc) - d).total_seconds() < 300:
+                        return
+                except Exception:
+                    pass
         if USE_SUPABASE:
             _rest('app_sessions', method='PATCH', params={'token_hash': f'eq.{token_hash}'},
                   body={'last_seen_at': _now()}, prefer='return=minimal')
@@ -360,6 +391,20 @@ def list_audit(limit=200, actor=None, action=None, q=None):
         except Exception:
             r['details'] = {}
     return rows
+
+
+def count_recent_failures(action, entity, entity_id, minutes=15):
+    """عدد المحاولات الفاشلة خلال النافذة الزمنية المحددة."""
+    cutoff = (datetime.now(timezone.utc) - timedelta(minutes=minutes)).isoformat()
+    if USE_SUPABASE:
+        rows = _rest('app_audit_log', params={'select': 'id', 'action': f'eq.{action}',
+                                             'entity': f'eq.{entity}',
+                                             'entity_id': f'eq.{entity_id}',
+                                             'created_at': f'gte.{cutoff}'}) or []
+        return len(rows)
+    return _sql().execute(
+        'SELECT COUNT(*) FROM app_audit_log WHERE action=? AND entity=? AND entity_id=? '
+        'AND created_at>=?', (action, entity, entity_id, cutoff)).fetchone()[0]
 
 
 def count_audit():
