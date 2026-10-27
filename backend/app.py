@@ -109,7 +109,8 @@ def new_verify_token():
 def verify_base(s=None):
     """أساس رابط التحقق: النطاق + المسار، مثل https://<domain>/verify/"""
     s = s or settings()
-    domain = (_host_base() or s.get('verify_domain') or DEFAULT_VERIFY_DOMAIN
+    # النطاق المثبّت في الإعدادات (Canonical) يتقدّم؛ وإلا يتبع النطاق الذي تُفتح به المنصة
+    domain = (s.get('verify_domain') or _host_base() or DEFAULT_VERIFY_DOMAIN
               or PUBLIC_BASE or request.url_root).rstrip('/')
     path = (s.get('verify_path') or DEFAULT_VERIFY_PATH).strip()
     if path and not path.startswith('/'):

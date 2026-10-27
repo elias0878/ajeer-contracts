@@ -4,7 +4,7 @@
 - النطاق `ajeer.qiwa.sa` **مسجَّل ومستضاف بالفعل** (السيرفرات: `ns1.bluvalt.sa` / `ns2.bluvalt.sa`، العنوان `185.118.121.89`) ويعرض موقعاً قائماً.
 - أُضيف النطاق إلى مشروع Vercel (`prj_shxDHaFIPwDab8OIDHMqF6emV5UD`) وأصبح في حالة **incomplete / misconfigured** بانتظار تعديل الـ DNS فقط.
 - التطبيق صار **يتكيّف مع أي نطاق**: بمجرد أن يصل النطاق إلى Vercel ستتحوّل كل روابط التحقق ورمز QR وملف PDF تلقائياً إلى
-  `https://ajeer.qiwa.sa/verify/?id=…` دون أي تعديل في الكود.
+  `https://ajeer-qiwa-sa-app.vercel.app/verify/?id=…` دون أي تعديل في الكود.
 
 ## المطلوب لتشغيله (دقيقتان في لوحة الاستضافة)
 عند مزوّد الاستضافة الذي يتحكّم بـ `qiwa.sa` (بلوفالت):
@@ -36,3 +36,11 @@ RewriteEngine On
 RewriteRule ^(.*)$ https://ajeer-qiwa.vercel.app/$1 [P,L]
 ```
 لكن هذا يُبقي الأداء أبطأ ولا يدعم WebSocket، والأفضل تعديل الـ DNS.
+
+## النطاقات العاملة الآن
+| النطاق | الحالة |
+|---|---|
+| `https://ajeer-qiwa-sa-app.vercel.app` | **النطاق الأساسي (Canonical)** — تُبنى عليه روابط التحقق ورمز QR |
+| `https://ajeer-qiwa.vercel.app` | يعمل (اختصار) |
+| `https://ajeer-contracts-app.vercel.app` | يعمل (قديم) |
+| `https://ajeer.qiwa.sa` | معلّق — ينتظر تعديل الـ DNS فقط |
