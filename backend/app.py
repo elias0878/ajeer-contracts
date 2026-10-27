@@ -86,6 +86,21 @@ def base_url():
     return _host_base() or PUBLIC_BASE or request.url_root.rstrip('/')
 
 
+PUBLIC_LANDING_PATH = '/l'
+
+
+def public_base(s=None):
+    """النطاق العام (Canonical): من الإعدادات أولاً ثم نطاق الطلب الحالي."""
+    s = s or settings()
+    return (s.get('verify_domain') or _host_base() or DEFAULT_VERIFY_DOMAIN
+            or PUBLIC_BASE or request.url_root).rstrip('/')
+
+
+def landing_url(s=None):
+    """الرابط الرسمي لصفحة الهبوط: <domain>/l"""
+    return public_base(s) + PUBLIC_LANDING_PATH
+
+
 HIJRI_EPOCH = 579  # 622 م - 43 فرق التقويمين ≈ 579
 
 
@@ -110,8 +125,7 @@ def verify_base(s=None):
     """أساس رابط التحقق: النطاق + المسار، مثل https://<domain>/verify/"""
     s = s or settings()
     # النطاق المثبّت في الإعدادات (Canonical) يتقدّم؛ وإلا يتبع النطاق الذي تُفتح به المنصة
-    domain = (s.get('verify_domain') or _host_base() or DEFAULT_VERIFY_DOMAIN
-              or PUBLIC_BASE or request.url_root).rstrip('/')
+    domain = public_base(s)
     path = (s.get('verify_path') or DEFAULT_VERIFY_PATH).strip()
     if path and not path.startswith('/'):
         path = '/' + path
@@ -317,6 +331,13 @@ def _gate():
     """حجب كل المسارات غير العامة قبل أي معالجة."""
     if request.endpoint == 'static' or request.path.startswith('/static/'):
         return
+    # أي مسار غير موجود → صفحة الهبوط الرسمية بدل صفحة خطأ
+    if request.endpoint is None and request.method in ('GET', 'HEAD') \
+            and not request.path.startswith('/api/'):
+        try:
+            return redirect(landing_url())
+        except Exception:
+            return redirect(PUBLIC_LANDING_PATH)
     blocked = auth.gate()
     if blocked is not None:
         try:
@@ -481,6 +502,8 @@ def inject_globals():
         permission_map=PERMISSION_MAP, perm_count=len(permissions()),
         action_label=action_label, details_text=details_text,
         details_pairs=details_pairs, entity_label=entity_label,
+        landing_url=landing_url, hijri_year=hijri_year,
+        official_verify_url=OFFICIAL_VERIFY_URL,
     )
 
 
@@ -614,6 +637,28 @@ def account():
 
 # ---------------------------------------------------------------- contracts
 @app.route('/')
+def root():
+    """الدخول المباشر بلا مسار → صفحة الهبوط الرسمية <domain>/l"""
+    try:
+        return redirect(landing_url())
+    except Exception:
+        return redirect(PUBLIC_LANDING_PATH)
+
+
+@app.route('/l')
+@app.route('/l/')
+@app.route('/landing')
+@app.route('/landing/')
+def landing():
+    """صفحة الهبوط العامة (الرابط الرسمي: <domain>/l)."""
+    try:
+        u = current_user()
+    except Exception:
+        u = None
+    return render_template('landing.html', page='landing', user=u)
+
+
+@app.route('/dashboard')
 @login_required
 def dashboard():
     db = get_db()
@@ -1372,6 +1417,11 @@ def webmanifest():
 
 @app.errorhandler(404)
 def not_found(e):
+    if request.method in ('GET', 'HEAD') and not request.path.startswith(('/api/', '/static/')):
+        try:
+            return redirect(landing_url())
+        except Exception:
+            return redirect(PUBLIC_LANDING_PATH)
     return render_template('404.html', page=''), 404
 
 

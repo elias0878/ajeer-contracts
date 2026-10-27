@@ -35,6 +35,13 @@ def main():
     # --- المصادقة (إلزامية قبل أي صفحة إدارية) ---
     anon = app.test_client()
     r = anon.get('/')
+    check('الدخول بلا مسار يحوّل إلى صفحة الهبوط /l',
+          r.status_code == 302 and r.headers.get('Location', '').endswith('/l'),
+          r.headers.get('Location', ''))
+    r = anon.get('/l')
+    check('صفحة الهبوط العامة متاحة للزائر (200)', r.status_code == 200,
+          str(r.status_code))
+    r = anon.get('/dashboard')
     check('زائر بلا تسجيل دخول يُحوَّل إلى /login',
           r.status_code == 302 and '/login' in r.headers.get('Location', ''))
     r = anon.get('/api/admin/users')
@@ -44,7 +51,7 @@ def main():
           r.status_code == 200 and 'غير صحيحة' in r.get_data(as_text=True))
 
     # --- بوابة الحجب: لا شيء عام إلا التحقق ---
-    protected = ['/', '/admin', '/admin?tab=audit', '/account', '/settings',
+    protected = ['/dashboard', '/admin', '/admin?tab=audit', '/account', '/settings',
                  '/contracts/1', '/contracts/1/edit', '/contracts/1/print',
                  '/contracts/1/pdf', '/contracts/1/embed', '/contracts/new']
     blocked = []
@@ -62,8 +69,9 @@ def main():
 
     for path in ['/wp-admin', '/.env', '/random-path', '/config.php']:
         rr = anon.get(path)
-        check(f'مسار غير موجود محجوب: {path}',
-              rr.status_code == 302 and '/login' in rr.headers.get('Location', ''))
+        check(f'مسار غير موجود يعود إلى /l: {path}',
+              rr.status_code == 302 and rr.headers.get('Location', '').endswith('/l'),
+              rr.headers.get('Location', ''))
 
     r = anon.get('/robots.txt')
     check('robots.txt يمنع الفهرسة', r.status_code == 200 and 'Disallow: /' in r.get_data(as_text=True))
@@ -71,12 +79,12 @@ def main():
     r = anon.get('/verify/TQ101515442')
     check('منع تخمين أرقام التصاريح من الخارج (404)', r.status_code == 404, str(r.status_code))
     r = client.post('/login', data={'email': 'admin@ajeer.sa', 'password': 'Ajeer@2026'})
-    check('تسجيل دخول المالك', r.status_code == 302 and '/' in r.headers.get('Location', ''),
+    check('تسجيل دخول المالك', r.status_code == 302 and '/dashboard' in r.headers.get('Location', ''),
           str(r.status_code))
 
     # --- الصفحات ---
     for path, needle in [
-        ('/', 'لوحة التحكم'),
+        ('/dashboard', 'لوحة التحكم'),
         ('/contracts/new', 'إنشاء تعاقد جديد'),
         ('/settings', 'إعدادات المنصة'),
         ('/verify/TQ101515442', 'TQ101515442'),
@@ -187,7 +195,7 @@ def main():
     check('POST /contracts/preview', r.status_code == 200 and 'اختبار آلي' in r.get_data(as_text=True))
 
     # --- بحث ---
-    r = client.get('/?q=TQ999000111')
+    r = client.get('/dashboard?q=TQ999000111')
     check('بحث بالرقم', 'TQ999000111' in r.get_data(as_text=True))
 
     # --- تحقق من الحقول ---

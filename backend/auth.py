@@ -32,6 +32,7 @@ SCRYPT_N, SCRYPT_R, SCRYPT_P, SCRYPT_LEN = 16384, 8, 1, 64
 #   • robots.txt و favicon
 PUBLIC_ENDPOINTS = {
     'static', 'login', 'logout',
+    'root', 'landing',
     'verify_gateway', 'verify',
     'robots_txt', 'favicon', 'webmanifest',
 }

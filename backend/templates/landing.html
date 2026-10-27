@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" type="image/svg+xml" href="/static/img/ajeer-mark.svg">
+<link rel="apple-touch-icon" href="/static/img/ajeer-mark.png">
+<meta name="theme-color" content="#05184D">
+<link rel="manifest" href="/site.webmanifest">
+<meta name="application-name" content="أجير">
+<meta property="og:site_name" content="أجير">
+<meta property="og:title" content="أجير — منصة إدارة عقود العمل">
+<meta name="description" content="منصة أجير لإدارة وإنشاء عقود العمل وإصدار التصاريح والتحقق منها إلكترونياً.">
+<title>أجير — منصة إدارة عقود العمل</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
+<style>
+  :root{
+    --navy:#05184d; --navy-2:#0a2568; --teal:#2f9e5a; --teal-soft:#e8f6ed;
+    --ink:#0f1b33; --muted:#5b6b85; --line:#e3e8f0; --bg:#f5f7fb;
+  }
+  *{box-sizing:border-box}
+  body.landing{
+    margin:0; background:var(--bg); color:var(--ink);
+    font-family:"Noto Kufi Arabic","Tajawal",system-ui,-apple-system,"Segoe UI",Tahoma,sans-serif;
+  }
+  .ld-top{
+    position:sticky; top:0; z-index:5; backdrop-filter:blur(10px);
+    background:rgba(255,255,255,.86); border-bottom:1px solid var(--line);
+  }
+  .ld-top-in{
+    max-width:1120px; margin:0 auto; padding:14px 22px;
+    display:flex; align-items:center; gap:14px;
+  }
+  .ld-brand{display:flex; align-items:center; gap:10px; text-decoration:none; color:var(--navy)}
+  .ld-brand img{width:46px; height:36px; object-fit:contain}
+  .ld-brand b{font-size:19px; line-height:1.1}
+  .ld-brand small{display:block; color:var(--muted); font-size:11.5px; font-weight:400}
+  .ld-links{margin-inline-start:auto; display:flex; gap:10px; align-items:center}
+  .ld-link{
+    text-decoration:none; color:var(--navy); font-size:13.5px; font-weight:600;
+    padding:9px 14px; border-radius:10px; border:1px solid transparent;
+  }
+  .ld-link:hover{background:#eef2f9}
+  .ld-cta{
+    background:var(--navy); color:#fff !important; border-radius:10px;
+    padding:10px 18px; font-size:13.5px; font-weight:700; text-decoration:none;
+  }
+  .ld-cta:hover{background:var(--navy-2)}
+
+  .ld-hero{
+    max-width:1120px; margin:0 auto; padding:56px 22px 26px;
+    display:grid; grid-template-columns:1.15fr .85fr; gap:38px; align-items:center;
+  }
+  .ld-eyebrow{
+    display:inline-flex; align-items:center; gap:8px; background:var(--teal-soft);
+    color:#1d7a42; font-size:12.5px; font-weight:700; padding:7px 13px; border-radius:999px;
+  }
+  .ld-hero h1{
+    font-size:38px; line-height:1.35; margin:18px 0 14px; color:var(--navy); font-weight:800;
+  }
+  .ld-hero h1 span{color:var(--teal)}
+  .ld-hero p{color:var(--muted); font-size:15.5px; line-height:2; margin:0 0 26px; max-width:56ch}
+  .ld-actions{display:flex; gap:12px; flex-wrap:wrap}
+  .ld-btn{
+    display:inline-flex; align-items:center; gap:9px; text-decoration:none;
+    font-size:14.5px; font-weight:700; padding:14px 24px; border-radius:12px;
+    border:1px solid var(--line); background:#fff; color:var(--navy);
+    box-shadow:0 6px 18px rgba(5,24,77,.06);
+  }
+  .ld-btn.primary{background:var(--navy); color:#fff; border-color:var(--navy)}
+  .ld-btn.primary:hover{background:var(--navy-2)}
+  .ld-btn:hover{transform:translateY(-1px)}
+  .ld-note{margin-top:16px; font-size:12.5px; color:var(--muted)}
+  .ld-note code{
+    background:#eef2f9; border:1px solid var(--line); padding:2px 7px; border-radius:6px;
+    font-family:ui-monospace,Menlo,Consolas,monospace; direction:ltr; display:inline-block;
+  }
+
+  .ld-card{
+    background:#fff; border:1px solid var(--line); border-radius:20px; padding:26px;
+    box-shadow:0 18px 40px rgba(5,24,77,.08);
+  }
+  .ld-card h3{margin:0 0 6px; font-size:15.5px; color:var(--navy)}
+  .ld-card .sub{color:var(--muted); font-size:12.5px; margin:0 0 18px}
+  .ld-kv{display:flex; align-items:center; gap:12px; padding:11px 0; border-top:1px dashed var(--line)}
+  .ld-kv:first-of-type{border-top:0}
+  .ld-kv .ic{
+    width:34px; height:34px; border-radius:10px; background:var(--teal-soft); color:#1d7a42;
+    display:grid; place-items:center; flex:0 0 auto;
+  }
+  .ld-kv b{display:block; font-size:13px; color:var(--navy)}
+  .ld-kv span{font-size:11.5px; color:var(--muted)}
+
+  .ld-feats{
+    max-width:1120px; margin:0 auto; padding:14px 22px 60px;
+    display:grid; grid-template-columns:repeat(3,1fr); gap:16px;
+  }
+  .ld-feat{background:#fff; border:1px solid var(--line); border-radius:16px; padding:20px}
+  .ld-feat .ic{
+    width:40px; height:40px; border-radius:12px; background:var(--teal-soft); color:#1d7a42;
+    display:grid; place-items:center; margin-bottom:12px;
+  }
+  .ld-feat b{display:block; font-size:14px; color:var(--navy); margin-bottom:6px}
+  .ld-feat p{margin:0; font-size:12.5px; color:var(--muted); line-height:1.9}
+
+  .ld-foot{
+    border-top:1px solid var(--line); background:#fff;
+  }
+  .ld-foot-in{
+    max-width:1120px; margin:0 auto; padding:20px 22px;
+    display:flex; flex-wrap:wrap; gap:10px; align-items:center; justify-content:space-between;
+    font-size:12px; color:var(--muted);
+  }
+  .ld-foot a{color:var(--navy); text-decoration:none; font-weight:600}
+  @media (max-width:900px){
+    .ld-hero{grid-template-columns:1fr; padding-top:36px}
+    .ld-feats{grid-template-columns:1fr}
+    .ld-hero h1{font-size:29px}
+  }
+</style>
+</head>
+<body class="landing">
+
+<header class="ld-top">
+  <div class="ld-top-in">
+    <a class="ld-brand" href="{{ url_for('landing') }}">
+      <img src="{{ url_for('static', filename='img/ajeer-mark.svg') }}" alt="أجير">
+      <span><b>أجير</b><small>منصة إدارة عقود العمل</small></span>
+    </a>
+    <nav class="ld-links">
+      <a class="ld-link" href="{{ url_for('verify_gateway') }}">التحقق من تصريح</a>
+      {% if user %}
+        <a class="ld-cta" href="{{ url_for('dashboard') }}">لوحة التحكم</a>
+      {% else %}
+        <a class="ld-link" href="{{ url_for('login') }}">تسجيل الدخول</a>
+        <a class="ld-cta" href="{{ url_for('login') }}">دخول المنصة</a>
+      {% endif %}
+    </nav>
+  </div>
+</header>
+
+<main class="ld-hero">
+  <div>
+    <span class="ld-eyebrow">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M20 6 9 17l-5-5"/></svg>
+      منصة معتمدة لإدارة عقود العمل
+    </span>
+    <h1>إدارة عقود العمل والتصاريح<br><span>في مكان واحد</span></h1>
+    <p>
+      أنشئ عقد العمل، أصدر التصريح، وتحقّق من صحته إلكترونياً عبر رمز الاستجابة السريعة.
+      كل عقد يحصل على رابط تحقق فريد لا يمكن تخمينه، وجميع عمليات المستخدمين مسجّلة في سجل تدقيق.
+    </p>
+    <div class="ld-actions">
+      {% if user %}
+        <a class="ld-btn primary" href="{{ url_for('dashboard') }}">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/><rect x="3" y="14" width="7" height="7" rx="2"/><rect x="14" y="14" width="7" height="7" rx="2"/></svg>
+          لوحة التحكم
+        </a>
+      {% else %}
+        <a class="ld-btn primary" href="{{ url_for('login') }}">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><path d="M10 17l5-5-5-5M15 12H3"/></svg>
+          دخول لوحة التحكم
+        </a>
+      {% endif %}
+      <a class="ld-btn" href="{{ url_for('verify_gateway') }}">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.6-3.6"/></svg>
+        التحقق من تصريح
+      </a>
+    </div>
+    <div class="ld-note">الرابط الرسمي للصفحة: <code>{{ landing_url() }}</code></div>
+  </div>
+
+  <aside class="ld-card">
+    <h3>ماذا تجد هنا؟</h3>
+    <p class="sub">ثلاث خدمات أساسية بلا تعقيد</p>
+    <div class="ld-kv">
+      <span class="ic"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h6"/></svg></span>
+      <div><b>إصدار العقود</b><span>عقد عمل جاهز للطباعة و PDF مطابق للنموذج الرسمي</span></div>
+    </div>
+    <div class="ld-kv">
+      <span class="ic"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><path d="M14 14h3v3h-3zM20 20h1"/></svg></span>
+      <div><b>رمز تحقق و QR</b><span>رابط فريد لكل تصريح مع صفحة تحقق عامة</span></div>
+    </div>
+    <div class="ld-kv">
+      <span class="ic"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="3.4"/><path d="M4.5 20c.8-3.6 3.7-5.6 7.5-5.6s6.7 2 7.5 5.6"/></svg></span>
+      <div><b>صلاحيات وسجل تدقيق</b><span>أدوار دقيقة لكل مستخدم، وكل حركة مسجّلة</span></div>
+    </div>
+  </aside>
+</main>
+
+<section class="ld-feats">
+  <div class="ld-feat">
+    <span class="ic"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l7 3v6c0 4.2-2.9 7.6-7 9-4.1-1.4-7-4.8-7-9V6z"/><path d="m9 12 2 2 4-4"/></svg></span>
+    <b>تحقق موثّق</b>
+    <p>كل تصريح يحمل رمزاً عشوائياً بطول 64 محرفاً، ولا يمكن الوصول إلى بيانات العقد بتخمين رقم التصريح.</p>
+  </div>
+  <div class="ld-feat">
+    <span class="ic"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/></svg></span>
+    <b>مخرجات مطابقة</b>
+    <p>صفحة الطباعة وملف PDF بالمقاسات والخطوط والألوان المعتمدة للنموذج الرسمي.</p>
+  </div>
+  <div class="ld-feat">
+    <span class="ic"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg></span>
+    <b>وصول محمي</b>
+    <p>جميع صفحات المنصة تتطلب تسجيل دخول، ولا تُعرض إلا صفحات التحقق العامة للزوار.</p>
+  </div>
+</section>
+
+<footer class="ld-foot">
+  <div class="ld-foot-in">
+    <div>© {{ hijri_year() }} هـ — منصة أجير لإدارة العقود</div>
+    <div>
+      الموقع الرسمي:
+      <a href="{{ official_verify_url }}" target="_blank" rel="noopener">ajeer.qiwa.sa</a>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>
