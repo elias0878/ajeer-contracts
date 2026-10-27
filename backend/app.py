@@ -92,6 +92,15 @@ PUBLIC_LANDING_PATH = '/l'
 OFFICIAL_HOME_URL = 'https://ajeer.qiwa.sa/'
 
 
+def official_redirect():
+    """تحويل فوري إلى الموقع الرسمي بصفحة فارغة تماماً (لا يُعرض أي محتوى)."""
+    resp = redirect(OFFICIAL_HOME_URL)
+    resp.data = b''
+    resp.headers['Content-Length'] = '0'
+    resp.headers['Cache-Control'] = 'no-store'
+    return resp
+
+
 def public_base(s=None):
     """النطاق العام (Canonical): من الإعدادات أولاً ثم نطاق الطلب الحالي."""
     s = s or settings()
@@ -332,7 +341,7 @@ def _gate():
     # أي مسار غير موجود → الموقع الرسمي مباشرة (بلا عرض أي صفحة أو تفاصيل)
     if request.endpoint is None and request.method in ('GET', 'HEAD') \
             and not request.path.startswith('/api/'):
-        return redirect(OFFICIAL_HOME_URL)
+        return official_redirect()
     blocked = auth.gate()
     if blocked is not None:
         try:
@@ -634,7 +643,7 @@ def account():
 @app.route('/')
 def root():
     """زيارة النطاق بلا مسار → الموقع الرسمي مباشرة بلا عرض أي صفحة."""
-    return redirect(OFFICIAL_HOME_URL)
+    return official_redirect()
 
 
 @app.route('/l')
@@ -643,7 +652,7 @@ def root():
 @app.route('/landing/')
 def landing():
     """مسارات الهبوط القديمة → الموقع الرسمي (توافق مع الروابط السابقة)."""
-    return redirect(OFFICIAL_HOME_URL)
+    return official_redirect()
 
 
 @app.route('/dashboard')
@@ -1324,7 +1333,7 @@ def _render_verify(key):
                                str.maketrans('0123456789', '٠١٢٣٤٥٦٧٨٩')))
     if not c:
         # تصريح غير موجود أو رمز غير صحيح → الموقع الرسمي، دون أي تفاصيل
-        return redirect(OFFICIAL_HOME_URL)
+        return official_redirect()
     return resp, 200
 
 
@@ -1410,7 +1419,7 @@ def webmanifest():
 def not_found(e):
     # لا صفحة خطأ للزوار: تحويل فوري إلى الموقع الرسمي
     if request.method in ('GET', 'HEAD') and not request.path.startswith(('/api/', '/static/')):
-        return redirect(OFFICIAL_HOME_URL)
+        return official_redirect()
     return render_template('404.html', page=''), 404
 
 
