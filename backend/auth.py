@@ -26,18 +26,18 @@ SCRYPT_N, SCRYPT_R, SCRYPT_P, SCRYPT_LEN = 16384, 8, 1, 64
 
 # المسارات الوحيدة المتاحة بدون تسجيل دخول:
 #   • صفحة الدخول/الخروج
-#   • صفحة التحقق التي يفتحها رمز QR  (/agiar/index.php?id=…)
+#   • صفحة التحقق التي يفتحها رمز QR  (/verify/?id=…)
 #   • روابط التحقق القديمة /verify/<token>
 #   • الملفات الثابتة (CSS/خطوط/شعارات) اللازمة لعرض صفحة التحقق
 #   • robots.txt و favicon
 PUBLIC_ENDPOINTS = {
     'static', 'login', 'logout',
     'verify_gateway', 'verify',
-    'robots_txt', 'favicon',
+    'robots_txt', 'favicon', 'webmanifest',
 }
 
 # بادئات لا تُسجَّل محاولاتها (ملفات ثابتة / متصفح)
-_NOISE_PREFIXES = ('/static/', '/robots.txt', '/favicon.ico', '/.well-known/')
+_NOISE_PREFIXES = ('/static/', '/robots.txt', '/favicon.ico', '/site.webmanifest', '/.well-known/')
 
 
 # ------------------------------------------------------------------ hashing

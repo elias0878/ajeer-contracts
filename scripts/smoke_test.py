@@ -131,23 +131,23 @@ def main():
     check('GET /api/health (مسجّل)', r.status_code == 200 and js.get('status') == 'ok', str(js))
     check('GET /api/health (زائر)', anon.get('/api/health').status_code == 401)
 
-    # --- رابط التحقق الجديد: /agiar/index.php?id=<token> ---
+    # --- رابط التحقق الجديد: /verify/?id=<token> ---
     import re as _re
     view = client.get('/contracts/1').get_data(as_text=True)
     m = _re.search(r'id="verifyLink"[^>]*value="([^"]+)"', view)
     link = m.group(1) if m else ''
     check('رابط التحقق موجود في صفحة التعاقد', bool(link), link)
-    check('شكل الرابط /agiar/index.php?id=', '/agiar/index.php?id=' in link, link)
+    check('شكل الرابط /verify/?id=', '/verify/?id=' in link, link)
     _tok = link.split('id=')[-1]
     check('رمز التحقق 64 محرفاً', len(_tok) >= 40, str(len(_tok)))
     check('الرابط لا يحتوي رقم التصريح', 'TQ101515442' not in link, link)
-    r = client.get('/agiar/index.php?id=' + _tok)
+    r = client.get('/verify/?id=' + _tok)
     check('صفحة التحقق تفتح بالرمز', r.status_code == 200 and 'احمد صبحى' in r.get_data(as_text=True))
-    r = client.get('/agiar/index.php?id=' + 'X' * 64)
+    r = client.get('/verify/?id=' + 'X' * 64)
     check('رمز غير صحيح يعيد 404', r.status_code == 404, str(r.status_code))
-    r = client.get('/agiar/index.php')
+    r = client.get('/verify/')
     check('صفحة إدخال الرمز تعمل', r.status_code == 200)
-    vf = client.get('/agiar/index.php?id=' + _tok).get_data(as_text=True)
+    vf = client.get('/verify/?id=' + _tok).get_data(as_text=True)
     for needle, label in [('معلومات التصريح', 'بطاقة معلومات التصريح'),
                           ('المنشأة المستفيدة', 'بطاقة المنشأة المستفيدة'),
                           ('شركة الإستقدام', 'بطاقة شركة الاستقدام'),

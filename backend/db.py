@@ -26,7 +26,7 @@ FIELDS = ['permit_no', 'worker_name', 'id_no', 'profession', 'nationality', 'pro
 DEFAULT_SETTINGS = {
     'org_name': 'إدارة العقود',
     'verify_domain': '',  # فارغ = يُستخدم نطاق التطبيق الحالي تلقائياً
-    'verify_path': '/agiar/index.php',
+    'verify_path': '/verify/',
     'verify_title': 'تصريح أُجْير لحُلول الموارد البشرية',
     'official_verify_url': 'https://ajeer.qiwa.sa/verify/',
     'verify_partners': '',

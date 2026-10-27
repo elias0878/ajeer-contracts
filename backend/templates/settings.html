@@ -1,5 +1,5 @@
 {% extends 'base.html' %}
-{% block title %}الإعدادات{% endblock %}
+{% block title %}أجير — الإعدادات{% endblock %}
 {% block crumb %}<a href="{{ url_for('dashboard') }}">الرئيسية</a> / الإعدادات{% endblock %}
 {% block heading %}إعدادات المنصة{% endblock %}
 
@@ -17,12 +17,12 @@
         <div class="field">
           <label for="verify_domain">نطاق التحقق (Domain)</label>
           <input id="verify_domain" name="verify_domain" value="{{ settings.verify_domain }}" dir="ltr" style="text-align:right">
-          <div class="tip">مثال: <span dir="ltr">https://ajeer-hirs-giwa.net</span></div>
+          <div class="tip">مثال: <span dir="ltr">https://ajeer-qiwa.vercel.app</span></div>
         </div>
         <div class="field">
           <label for="verify_path">مسار صفحة التحقق</label>
           <input id="verify_path" name="verify_path" value="{{ settings.verify_path }}" dir="ltr" style="text-align:right">
-          <div class="tip">مثال: <span dir="ltr">/agiar/index.php</span></div>
+          <div class="tip">مثال: <span dir="ltr">/verify/</span> — مطابق لمسار الموقع الرسمي</div>
         </div>
         <div class="field full">
           <label for="official_verify_url">رابط التحقق الرسمي (يظهر في تذييل التصريح)</label>

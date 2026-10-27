@@ -86,7 +86,7 @@ def hijri_year(d=None):
 
 DEFAULT_VERIFY_DOMAIN = ''          # فارغ = نطاق التطبيق الحالي
 OFFICIAL_VERIFY_URL = 'https://ajeer.qiwa.sa/verify/'   # الموقع الرسمي (رابط التذييل)
-DEFAULT_VERIFY_PATH = '/agiar/index.php'
+DEFAULT_VERIFY_PATH = '/verify/'   # مطابق لمسار الموقع الرسمي: ajeer.qiwa.sa/verify/
 
 
 def new_verify_token():
@@ -95,13 +95,16 @@ def new_verify_token():
 
 
 def verify_base(s=None):
-    """أساس رابط التحقق: النطاق + المسار، مثل https://<domain>/agiar/index.php"""
+    """أساس رابط التحقق: النطاق + المسار، مثل https://<domain>/verify/"""
     s = s or settings()
     domain = (s.get('verify_domain') or DEFAULT_VERIFY_DOMAIN
               or PUBLIC_BASE or request.url_root).rstrip('/')
     path = (s.get('verify_path') or DEFAULT_VERIFY_PATH).strip()
     if path and not path.startswith('/'):
         path = '/' + path
+    if path.endswith('index.php') or path.endswith('index.html'):
+        # روابط قديمة على شكل /agiar/index.php → /agiar/
+        path = path.rsplit('/', 1)[0] + '/'
     return domain + path
 
 
@@ -1250,11 +1253,13 @@ def _render_verify(key):
     return (resp, 200) if (c or not key) else (resp, 404)
 
 
+@app.route('/verify/')
+@app.route('/verify')
 @app.route('/agiar/index.php')
 @app.route('/agiar/')
 @app.route('/agiar')
 def verify_gateway():
-    """صفحة التحقق التي يفتحها رمز QR — /agiar/index.php?id=<token>"""
+    """صفحة التحقق التي يفتحها رمز QR — /verify/?id=<token> (ويبقى /agiar/index.php اسماً بديلاً)"""
     key = (request.args.get('id') or request.args.get('t')
            or request.args.get('token') or request.args.get('code') or '').strip()
     if key.startswith('http'):
@@ -1307,7 +1312,23 @@ def robots_txt():
 
 @app.route('/favicon.ico')
 def favicon():
+    """أيقونة التبويب — شعار أجير الرسمي (نفس أيقونة ajeer.qiwa.sa)."""
+    path = os.path.join(BASE_DIR, 'static', 'img', 'ajeer-mark.png')
+    if os.path.exists(path):
+        return send_file(path, mimetype='image/png', max_age=86400)
     return ('', 204)
+
+
+@app.route('/site.webmanifest')
+def webmanifest():
+    """بيانات التطبيق (الاسم والأيقونة) لعنوان التبويب على الجوال."""
+    return jsonify(
+        name='أجير', short_name='أجير', start_url='/',
+        display='standalone', background_color='#ffffff', theme_color='#05184D',
+        dir='rtl', lang='ar',
+        icons=[{'src': '/static/img/ajeer-mark.png', 'sizes': '360x360', 'type': 'image/png',
+                'purpose': 'any maskable'}],
+    )
 
 
 @app.errorhandler(404)
