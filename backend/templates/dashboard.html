@@ -18,12 +18,13 @@
   @media (max-width:1120px){.dash-cards{grid-template-columns:repeat(2,minmax(0,1fr))}}
   @media (max-width:760px){.dash-cards{grid-template-columns:1fr}}
   .card table.list td .who .nm{white-space:nowrap}
-  .rail{background:#fff;border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow-sm);overflow:hidden}
+  .rail{background:#fff;border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow-sm);overflow:hidden;display:flex;flex-direction:column}
   .rail-h{display:flex;align-items:center;gap:8px;padding:12px 14px;border-bottom:1px solid var(--line-2)}
   .rail-h b{font-size:12.5px}
   .rail-h .sp{flex:1}
   .rail-h a{font-size:11px;color:var(--teal-2);font-weight:700}
-  .rail-b{padding:8px}
+  .rail-b{padding:8px;display:flex;flex-direction:column;flex:1}
+  .rail-empty{margin:auto}
   .qact{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:10px;font-size:12.5px;font-weight:700;color:var(--ink)}
   .qact:hover{background:#f4f9fe}
   .qact .qi{width:30px;height:30px;border-radius:9px;display:flex;align-items:center;justify-content:center;
