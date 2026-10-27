@@ -40,7 +40,23 @@ RewriteRule ^(.*)$ https://ajeer-qiwa.vercel.app/$1 [P,L]
 ## النطاقات العاملة الآن
 | النطاق | الحالة |
 |---|---|
-| `https://ajeer-qiwa-sa-app.vercel.app` | **النطاق الأساسي (Canonical)** — تُبنى عليه روابط التحقق ورمز QR |
+| `https://ajeer-qiwa-sa-app.vercel.app` | **النطاق الأساسي (Canonical)** — كل الكلمات مفصولة بشرطة `-` ولا كلمة ملتصقة |
+| `https://ajeer-qiwa-sa-app.vercel.app/ajeer.qiwa.sa/l` | **الرابط الرسمي للمنصة** — صفحة الهبوط بالنقاط الحقيقية |
+| `https://ajeer-qiwa-sa-app.vercel.app/ajeer.qiwa.sa/verify/?id=…` | رابط التحقق ورمز QR |
+| `https://ajeerqiwaapp.vercel.app` | يعمل (الاسم السابق، ملتصق الكلمات) |
 | `https://ajeer-qiwa.vercel.app` | يعمل (اختصار) |
-| `https://ajeer-contracts-app.vercel.app` | يعمل (قديم) |
 | `https://ajeer.qiwa.sa` | معلّق — ينتظر تعديل الـ DNS فقط |
+
+### مسار النقاط (Dotted path)
+وسيط `_DottedAlias` في `backend/app.py` يخدم البادئتين `/ajeer.qiwa.sa/…` و `/ajeer.qiwa/…`
+بإزالة البادئة من `PATH_INFO` قبل تمرير الطلب لتطبيق Flask، لذا:
+
+- `…/ajeer.qiwa.sa/l` → صفحة الهبوط
+- `…/ajeer.qiwa.sa/verify/?id=…` → صفحة التحقق
+- `…/ajeer.qiwa.sa/login` → تسجيل الدخول
+
+### قواعد التحويل التلقائي (اتُّفق عليها في المرحلة 9)
+- الدخول إلى `/` بلا مسار → `302` إلى `<canonical>/l`
+- أي مسار غير موجود → `302` إلى `<canonical>/l` (بدل صفحة 404)
+- لوحة التحكم صارت على `/dashboard` (كانت على `/`)
+- `<canonical>` يُقرأ من إعداد `verify_domain`، فمتى رُبط `ajeer.qiwa.sa` يصبح الرابط حرفياً `https://ajeer.qiwa.sa/l`
