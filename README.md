@@ -4,7 +4,7 @@
 
 **نظام ويب عربي (RTL) لإدارة العقود وتصاريح العمل، يولّد مستند PDF مطابقاً للنموذج الرسمي حرفياً.**
 
-[![Live](https://img.shields.io/badge/Live-ajeer--qiwa--sa--app.vercel.app-2f9e5a?logo=vercel&logoColor=white)](https://ajeer-qiwa-sa-app.vercel.app)
+[![Live](https://img.shields.io/badge/Live-ajeerqiwaapp.vercel.app-2f9e5a?logo=vercel&logoColor=white)](https://ajeerqiwaapp.vercel.app)
 [![Supabase](https://img.shields.io/badge/Supabase-PostgreSQL-3ECF8E?logo=supabase&logoColor=white)](https://supabase.com)
 [![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)](https://python.org)
 
@@ -92,12 +92,12 @@ ajeer-contracts/
 
 | الوجهة | الرابط |
 |---|---|
-| 🏠 **المنصة** | **https://ajeer-qiwa-sa-app.vercel.app** |
-| 🔐 لوحة التحكم | https://ajeer-qiwa-sa-app.vercel.app/ |
-| ➕ إنشاء تعاقد | https://ajeer-qiwa-sa-app.vercel.app/contracts/new |
-| 📄 مستند PDF | https://ajeer-qiwa-sa-app.vercel.app/contracts/1/pdf |
-| ✅ التحقق (QR) | https://ajeer-qiwa-sa-app.vercel.app/verify/TQ101515442 |
-| ❤️ حالة النظام | https://ajeer-qiwa-sa-app.vercel.app/api/health |
+| 🏠 **المنصة** | **https://ajeerqiwaapp.vercel.app** |
+| 🔐 لوحة التحكم | https://ajeerqiwaapp.vercel.app/ |
+| ➕ إنشاء تعاقد | https://ajeerqiwaapp.vercel.app/contracts/new |
+| 📄 مستند PDF | https://ajeerqiwaapp.vercel.app/contracts/1/pdf |
+| ✅ التحقق (QR) | https://ajeerqiwaapp.vercel.app/verify/TQ101515442 |
+| ❤️ حالة النظام | https://ajeerqiwaapp.vercel.app/api/health |
 | 💻 الكود المصدري | https://github.com/elias0878/ajeer-contracts |
 
 ---
@@ -246,7 +246,7 @@ cd backend && python app.py     # http://localhost:5000
 | `SUPABASE_URL` | `https://<ref>.supabase.co` |
 | `SUPABASE_SERVICE_KEY` | مفتاح service_role (سري) |
 | `SECRET_KEY` | مفتاح تشفير جلسات Flask |
-| `PUBLIC_BASE_URL` | `https://ajeer-qiwa-sa-app.vercel.app` |
+| `PUBLIC_BASE_URL` | `https://ajeerqiwaapp.vercel.app` |
 | `OWNER_EMAIL` | (اختياري) بريد المالك الأول — يُستخدم فقط عند التهيئة الأولى |
 | `OWNER_PASSWORD` | (اختياري) كلمة مرور المالك الأول — يُستخدم فقط عند التهيئة الأولى |
 
