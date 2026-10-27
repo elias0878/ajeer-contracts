@@ -1,6 +1,6 @@
 {% extends 'base.html' %}
 {% block title %}{{ 'تعديل تعاقد' if mode=='edit' else 'إنشاء تعاقد' }}{% endblock %}
-{% block crumb %}الرئيسية / التعاقدات / {{ 'تعديل' if mode=='edit' else 'إنشاء' }}{% endblock %}
+{% block crumb %}<a href="{{ url_for('dashboard') }}">الرئيسية</a> / التعاقدات / {{ 'تعديل' if mode=='edit' else 'إنشاء' }}{% endblock %}
 {% block heading %}{{ 'تعديل التعاقد ' ~ c.permit_no if mode=='edit' else 'إنشاء تعاقد جديد' }}{% endblock %}
 {% block topactions %}
   <a class="btn" href="{{ url_for('dashboard') }}">رجوع للقائمة</a>

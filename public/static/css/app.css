@@ -38,6 +38,7 @@ button,input,select,textarea{font-family:inherit;font-size:inherit}
   color:#dbe6f2;display:flex;flex-direction:column;padding:22px 16px;
   box-shadow:-1px 0 0 rgba(255,255,255,.04) inset;z-index:20;
 }
+a.brand{color:inherit;text-decoration:none}
 .brand{display:flex;align-items:center;gap:10px;padding:6px 6px 20px}
 .brand > div:last-child{min-width:0;flex:1}
 .brand b,.brand small{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -74,6 +75,14 @@ button,input,select,textarea{font-family:inherit;font-size:inherit}
 .topbar h1{font-size:17px;margin:0;font-weight:700;letter-spacing:-.2px}
 .topbar .crumb{color:var(--muted);font-size:12px}
 .topbar .spacer{flex:1}
+.crumb-row{display:flex;align-items:center;gap:8px;min-height:20px}
+.crumb-row .crumb a{color:var(--ink-2);font-weight:700}
+.crumb-row .crumb a:hover{color:var(--teal-2)}
+.topbar-back{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:700;
+  color:var(--teal-2);background:var(--teal-soft);border:1px solid #c7ebe8;border-radius:8px;
+  padding:2px 8px;white-space:nowrap;line-height:1.5}
+.topbar-back:hover{background:#e3f6f4;border-color:#a9e3df}
+.topbar-back svg{width:12px;height:12px}
 .avatar{width:38px;height:38px;border-radius:12px;background:linear-gradient(135deg,#13a09a,#2f6fd0);
   color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;
   box-shadow:var(--shadow-sm)}

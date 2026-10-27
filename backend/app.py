@@ -85,6 +85,7 @@ def hijri_year(d=None):
 
 
 DEFAULT_VERIFY_DOMAIN = ''          # فارغ = نطاق التطبيق الحالي
+OFFICIAL_VERIFY_URL = 'https://ajeer.qiwa.sa/verify/'   # الموقع الرسمي (رابط التذييل)
 DEFAULT_VERIFY_PATH = '/agiar/index.php'
 
 
@@ -162,7 +163,9 @@ def doc_context(c, s=None):
     ctx['qr'] = qr_data_uri(verify_link(c, s=s))
     ctx['verify_domain'] = s.get('verify_domain') or PUBLIC_BASE or request.url_root.rstrip('/')
     ctx['verify_url'] = verify_link(c, s=s)
-    ctx['doc'] = doclayout.build(ctx, verify_domain=ctx['verify_domain'])
+    ctx['footer_url'] = (s.get('official_verify_url') or OFFICIAL_VERIFY_URL).strip()
+    ctx['doc'] = doclayout.build(ctx, verify_domain=ctx['verify_domain'],
+                                 footer_url=ctx['footer_url'])
     return ctx
 
 
@@ -708,7 +711,8 @@ def view_contract(id_):
     c['status'], c['status_label'] = status_of(c)
     c['is_mine'] = owns(c)
     doc = doclayout.build(dict(c, verify_domain=(settings().get('verify_domain') or '')),
-                          verify_domain=settings().get('verify_domain'))
+                          verify_domain=settings().get('verify_domain'),
+                          footer_url=(settings().get('official_verify_url') or OFFICIAL_VERIFY_URL))
     return render_template('view.html', page='dashboard', c=c, settings=settings(),
                            can_edit=can_edit(c), can_del=can_delete(c),
                            verify_url=verify_link(c),
@@ -789,7 +793,8 @@ def pdf_contract(id_):
         abort(403)
     ctx = doc_context(c)
     try:
-        raw = build_pdf(ctx, qr_bytes(verify_link(c)), verify_domain=ctx['verify_domain'])
+        raw = build_pdf(ctx, qr_bytes(verify_link(c)), verify_domain=ctx['verify_domain'],
+                        footer_url=ctx['footer_url'])
     except Exception:
         return redirect(url_for('print_contract', id_=id_, auto=0))
     log_audit('contracts.pdf', 'contract', id_, {'permit_no': c['permit_no']})
@@ -816,7 +821,7 @@ def settings_page():
     if request.method == 'POST':
         changes = {}
         for k in ('org_name', 'verify_domain', 'verify_path', 'verify_title',
-                  'verify_partners', 'default_provider_name',
+                  'official_verify_url', 'verify_partners', 'default_provider_name',
                   'default_provider_no', 'default_site'):
             v = (request.form.get(k) or '').strip()
             if v:

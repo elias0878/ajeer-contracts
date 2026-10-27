@@ -1,6 +1,6 @@
 {% extends 'base.html' %}
 {% block title %}{{ c.permit_no }}{% endblock %}
-{% block crumb %}الرئيسية / التعاقدات / {{ c.permit_no }}{% endblock %}
+{% block crumb %}<a href="{{ url_for('dashboard') }}">الرئيسية</a> / التعاقدات / {{ c.permit_no }}{% endblock %}
 {% block heading %}تفاصيل التعاقد{% endblock %}
 {% block topactions %}
   {% if can('contracts.print') %}

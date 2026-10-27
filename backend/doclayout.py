@@ -37,6 +37,7 @@ FILL = '#e7ecef'
 BORDER = '#d1d4db'
 HDR_BORDER = '#c6c6c6'
 LINK = '#1b5cba'
+DEFAULT_FOOTER_URL = 'https://ajeer.qiwa.sa/verify/'   # الموقع الرسمي للتحقق
 
 # الترويسة
 HDR = (105.0, 88.15, 943.3, 212.4)
@@ -182,11 +183,14 @@ def _rect(items, x, y, w, h, fill=None, stroke=None, lw=0.0):
                   'h': round(h, 2), 'fill': fill, 'stroke': stroke, 'lw': round(lw, 3)})
 
 
-def _text(items, anchor, x, baseline, s, size, bold=False, color=INK):
+def _text(items, anchor, x, baseline, s, size, bold=False, color=INK, href=None):
     if not str(s or '').strip():
         return
-    items.append({'t': 'text', 'anchor': anchor, 'x': round(x, 3), 'y': round(baseline, 3),
-                  's': str(s), 'size': round(size, 2), 'bold': bool(bold), 'color': color})
+    it = {'t': 'text', 'anchor': anchor, 'x': round(x, 3), 'y': round(baseline, 3),
+          's': str(s), 'size': round(size, 2), 'bold': bool(bold), 'color': color}
+    if href:
+        it['href'] = href
+    items.append(it)
 
 
 def _text_top(items, anchor, x, ink_top, s, size, bold=False, color=INK):
@@ -235,7 +239,7 @@ def _resolve(items):
     return items
 
 
-def build(c, qr_src=None, verify_domain=None):
+def build(c, qr_src=None, verify_domain=None, footer_url=None):
     """يبني عناصر الوثيقة. c: بيانات التعاقد (dict)."""
     items = []
     vals = {k: (c.get(k) or '') for k in (
@@ -382,7 +386,9 @@ def build(c, qr_src=None, verify_domain=None):
 
     # ---------------- التذييل (مثبّت من أسفل الصفحة) ----------------
     page_h = round(T + PAGE_TAIL_AT[1] + PAGE_TAIL_SLOPE * (T - PAGE_TAIL_AT[0]), 2)
-    domain = verify_domain or 'https://ajeer.com.sa'
+    domain = (footer_url or verify_domain or DEFAULT_FOOTER_URL).strip()
+    if not domain.endswith('/'):
+        domain += '/'
     link = '(%s)' % domain
     ar_adv = metrics(FOOT1_AR, FOOT_SIZE)[0]
     ln_adv = metrics(link, FOOT_SIZE)[0]
@@ -391,7 +397,7 @@ def build(c, qr_src=None, verify_domain=None):
     left = FOOT1_CX - total / 2.0
     foot1_top = page_h - FOOT_FROM_BOTTOM
     baseline = foot1_top + ascender(FOOT1_AR, FOOT_SIZE)
-    _text(items, 'l', left, baseline, link, FOOT_SIZE, False, LINK)
+    _text(items, 'l', left, baseline, link, FOOT_SIZE, False, LINK, href=domain)
     _text(items, 'r', left + total, baseline, FOOT1_AR, FOOT_SIZE)
     _rect(items, left, baseline + 2.45, ln_adv, 0.85, fill=LINK)
     _text_top(items, 'ck', FOOT2_CX, foot1_top + FOOT2_DY, FOOT2, FOOT_SIZE)

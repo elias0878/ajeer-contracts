@@ -67,8 +67,8 @@ class _Doc(FPDF):
         self.text_mode = TextMode.FILL
 
 
-def build_pdf(contract, qr_png_bytes=None, verify_domain=None):
-    doc = L.build(contract, verify_domain=verify_domain)
+def build_pdf(contract, qr_png_bytes=None, verify_domain=None, footer_url=None):
+    doc = L.build(contract, verify_domain=verify_domain, footer_url=footer_url)
     pdf = _Doc(doc['w'], doc['h'])
     pdf.set_fill_color(255, 255, 255)
     pdf.rect(0, 0, doc['w'], doc['h'], style='F')
@@ -94,5 +94,10 @@ def build_pdf(contract, qr_png_bytes=None, verify_domain=None):
         elif t == 'text':
             pdf.draw_text(it['pen'], it['y'], it['s'], it['size'],
                           it['bold'], it['color'])
+            if it.get('href'):
+                # منطقة قابلة للنقر فوق رابط التحقق في التذييل
+                adv = L.metrics(it['s'], it['size'])[0]
+                pdf.link(it['pen'], it['y'] - it['size'] * 0.95,
+                         max(adv, 1.0), it['size'] * 1.35, it['href'])
 
     return bytes(pdf.output())

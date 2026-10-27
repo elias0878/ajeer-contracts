@@ -2,7 +2,7 @@
 {% set tab_title = {'users': 'إدارة المستخدمين', 'perms': 'مصفوفة الصلاحيات', 'audit': 'سجل النشاط'}.get(tab, 'لوحة الإدارة') %}
 {% block title %}{{ tab_title }}{% endblock %}
 {% set tab_crumb = {'users': 'المستخدمون', 'perms': 'الصلاحيات', 'audit': 'سجل النشاط'}.get(tab, 'لوحة الإدارة') %}
-{% block crumb %}الإدارة / {{ tab_crumb }}{% endblock %}
+{% block crumb %}<a href="{{ url_for('admin_page') }}">الإدارة</a> / {{ tab_crumb }}{% endblock %}
 {% block heading %}{{ tab_title }}{% endblock %}
 
 {% block topactions %}

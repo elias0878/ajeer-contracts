@@ -1,6 +1,6 @@
 {% extends 'base.html' %}
 {% block title %}الإعدادات{% endblock %}
-{% block crumb %}الرئيسية / الإعدادات{% endblock %}
+{% block crumb %}<a href="{{ url_for('dashboard') }}">الرئيسية</a> / الإعدادات{% endblock %}
 {% block heading %}إعدادات المنصة{% endblock %}
 
 {% block content %}
@@ -23,6 +23,11 @@
           <label for="verify_path">مسار صفحة التحقق</label>
           <input id="verify_path" name="verify_path" value="{{ settings.verify_path }}" dir="ltr" style="text-align:right">
           <div class="tip">مثال: <span dir="ltr">/agiar/index.php</span></div>
+        </div>
+        <div class="field full">
+          <label for="official_verify_url">رابط التحقق الرسمي (يظهر في تذييل التصريح)</label>
+          <input id="official_verify_url" name="official_verify_url" value="{{ settings.official_verify_url }}" dir="ltr" style="text-align:right">
+          <div class="tip">هذا هو الرابط المطبوع والقابل للنقر أسفل ورقة التصريح وملف PDF. الافتراضي: <span dir="ltr">https://ajeer.qiwa.sa/verify/</span></div>
         </div>
         <div class="field full">
           <label>شكل رابط التحقق الناتج</label>
@@ -56,7 +61,7 @@
       <div class="card-h"><h2>حول المستند</h2></div>
       <div class="card-b">
         <div class="note">
-          <p style="margin:0 0 10px">يُولَّد مستند «تعاقد أجير» بمقاس <b>8.5 × 11 بوصة</b> بنفس تنسيق النموذج المعتمد، ويشمل:</p>
+          <p style="margin:0 0 10px">يُولَّد مستند «تعاقد أجير» بمقاس <b>1000 × 1524.66 نقطة</b> (A4) بنفس تنسيق النموذج المعتمد، ويشمل:</p>
           <ul style="margin:0;padding-inline-start:18px;line-height:2">
             <li>ترويسة رسمية مع الشعار ورمز QR ورقم التصريح.</li>
             <li>جدول بيانات العامل ومقدم الخدمة والمستفيد والتصريح.</li>
@@ -67,8 +72,8 @@
       </div>
     </div>
     <div class="tipbox" style="margin-top:16px">
-      <b>نصيحة:</b> عند الطباعة من المتصفح اختر مقاس الورق <b>Letter</b> وهوامش <b>None</b> لضمان تطابق التنسيق.
-      أو استخدم زر «تحميل PDF» للحصول على ملف مطابق تماماً بمقاس 612×792 نقطة.
+      <b>نصيحة:</b> عند الطباعة من المتصفح اختر مقاس الورق <b>A4</b> وهوامش <b>None</b> لضمان تطابق التنسيق،
+      أو استخدم زر «تحميل PDF» للحصول على ملف مطابق تماماً بمقاس 1000×1524.66 نقطة.
     </div>
   </div>
 </form>

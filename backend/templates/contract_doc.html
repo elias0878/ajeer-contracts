@@ -81,12 +81,14 @@ body.embed .sheet{box-shadow:0 4px 18px rgba(20,35,63,.10);margin:0}
          preserveAspectRatio="none"
          href="{% if it.src == 'qr' %}{{ c.qr }}{% else %}{{ assets }}{{ it.src }}{% endif %}"/>
 {%- elif it.t == 'text' %}
+  {%- if it.href %}<a href="{{ it.href }}" target="_blank" rel="noopener">{% endif %}
   <text x="{{ '%.3f'|format(it.pen + it.adv if it.dir == 'rtl' else it.pen) }}"
         y="{{ it.y }}" font-size="{{ it.size }}" fill="{{ it.color }}"
         direction="{{ it.dir }}" text-anchor="start" xml:space="preserve"
         text-rendering="geometricPrecision"
         {%- if it.bold %} paint-order="stroke" stroke="{{ it.color }}"
         stroke-width="{{ '%.3f'|format(it.size/30) }}" stroke-linejoin="round"{% endif %}>{{ it.s }}</text>
+  {%- if it.href %}</a>{% endif %}
 {%- endif %}
 {%- endfor %}
 </svg>

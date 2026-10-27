@@ -28,6 +28,7 @@ DEFAULT_SETTINGS = {
     'verify_domain': '',  # فارغ = يُستخدم نطاق التطبيق الحالي تلقائياً
     'verify_path': '/agiar/index.php',
     'verify_title': 'تصريح أُجْير لحُلول الموارد البشرية',
+    'official_verify_url': 'https://ajeer.qiwa.sa/verify/',
     'verify_partners': '',
     'default_provider_name': 'مؤسسة مكعب العربية للمقاولات العامة',
     'default_provider_no': '1970887-6',

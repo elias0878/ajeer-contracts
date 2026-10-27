@@ -11,13 +11,13 @@
 <body>
 <div class="shell">
   <aside class="sidebar">
-    <div class="brand">
+    <a class="brand" href="{{ url_for('dashboard') if can_any('contracts.view_all','contracts.view_own') else url_for('account') }}">
       <div class="brand-logo"><img src="{{ url_for('static', filename='img/ajeer_logo.png') }}" alt="أجير"></div>
       <div>
         <b>تعاقد أجير</b>
         <small>منصة إدارة وإنشاء العقود</small>
       </div>
-    </div>
+    </a>
 
     <nav class="nav">
       <div class="nav-title">الرئيسية</div>
@@ -74,7 +74,16 @@
   <div class="main">
     <header class="topbar">
       <div>
-        <div class="crumb">{% block crumb %}الرئيسية{% endblock %}</div>
+        <div class="crumb-row">
+          {% if request.endpoint not in ('dashboard', 'login', 'verify_gateway') %}
+          <a class="topbar-back" href="{{ url_for('dashboard') if can_any('contracts.view_all','contracts.view_own') else url_for('account') }}"
+             title="العودة إلى لوحة التحكم">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M9 5l7 7-7 7"/></svg>
+            رجوع
+          </a>
+          {% endif %}
+          <div class="crumb">{% block crumb %}الرئيسية{% endblock %}</div>
+        </div>
         <h1>{% block heading %}لوحة التحكم{% endblock %}</h1>
       </div>
       <div class="spacer"></div>
