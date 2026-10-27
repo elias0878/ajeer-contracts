@@ -477,7 +477,7 @@
           <td class="c-act">
             <span class="badge {{ 'b-danger' if sec else ('b-ok' if 'create' in a.action or 'login' == a.action.split('.')[-1] and 'fail' not in a.action else ('b-danger' if 'delete' in a.action or 'revoke' in a.action else ('b-info' if 'update' in a.action or 'pdf' in a.action or 'print' in a.action else 'b-mut'))) }}">{{ action_label(a.action) }}</span>
           </td>
-          <td class="c-ent">{{ entity_label(a.entity) }}{% if a.entity_id %} <span class="eid">#{{ a.entity_id }}</span>{% endif %}</td>
+          <td class="c-ent">{{ entity_label(a.entity) }}{% if a.entity_id %}{% if a.entity_id is string and a.entity_id.startswith('/') %} <span class="eid" dir="ltr">{{ a.entity_id }}</span>{% else %} <span class="eid">#{{ a.entity_id }}</span>{% endif %}{% endif %}</td>
           <td class="c-det">
             {% set pairs = details_pairs(a.details) %}
             {% if pairs %}
