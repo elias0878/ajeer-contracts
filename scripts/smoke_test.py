@@ -81,8 +81,8 @@ def main():
         ('/settings', 'إعدادات المنصة'),
         ('/verify/TQ101515442', 'TQ101515442'),
         ('/contracts/1', 'تفاصيل التعاقد'),
-        ('/contracts/1/embed', 'تعاقد اجير'),
-        ('/contracts/1/print?auto=0', 'إقرارات'),
+        ('/contracts/1/embed', '<svg'),
+        ('/contracts/1/print?auto=0', 'أقرارات'),
     ]:
         r = client.get(path)
         check(f'GET {path}', r.status_code == 200 and needle in r.get_data(as_text=True))
@@ -164,7 +164,7 @@ def main():
     check('PDF content-type', r.headers.get('Content-Type') == 'application/pdf')
     check('PDF signature', pdf[:5] == b'%PDF-', pdf[:20])
     check('PDF size > 50KB', len(pdf) > 50_000, str(len(pdf)))
-    check('PDF page letter', b'/MediaBox [0 0 612 792]' in pdf or b'612' in pdf)
+    check('PDF page 1000x1524.66', b'/MediaBox [0 0 1000.00 1524.66]' in pdf)
 
     # --- QR ---
     r = client.get('/api/qr/TQ101515442.png')

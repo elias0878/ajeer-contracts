@@ -12,6 +12,46 @@
   {% endif %}
 {% endblock %}
 
+{% block head %}
+<style>
+  .dash-cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin-top:18px}
+  @media (max-width:1120px){.dash-cards{grid-template-columns:repeat(2,minmax(0,1fr))}}
+  @media (max-width:760px){.dash-cards{grid-template-columns:1fr}}
+  .card table.list td .who .nm{white-space:nowrap}
+  .rail{background:#fff;border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow-sm);overflow:hidden}
+  .rail-h{display:flex;align-items:center;gap:8px;padding:12px 14px;border-bottom:1px solid var(--line-2)}
+  .rail-h b{font-size:12.5px}
+  .rail-h .sp{flex:1}
+  .rail-h a{font-size:11px;color:var(--teal-2);font-weight:700}
+  .rail-b{padding:8px}
+  .qact{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:10px;font-size:12.5px;font-weight:700;color:var(--ink)}
+  .qact:hover{background:#f4f9fe}
+  .qact .qi{width:30px;height:30px;border-radius:9px;display:flex;align-items:center;justify-content:center;
+    background:var(--teal-soft);color:var(--teal-2);flex:0 0 30px}
+  .qact .qi.blue{background:#eaf1fc;color:#2f6fd0}
+  .qact .qi.navy{background:#e9eef6;color:#2b3f63}
+  .qact svg{width:16px;height:16px}
+  .qact .sm{display:block;font-size:10.5px;font-weight:400;color:var(--muted)}
+  .rail-i{display:flex;gap:9px;align-items:center;padding:9px 10px;border-radius:10px}
+  .rail-i:hover{background:#f7fbff}
+  .rail-i .d{flex:1;min-width:0}
+  .rail-i .pm{font-size:11.5px;font-weight:700;color:var(--ink);direction:ltr;text-align:right}
+  .rail-i .nm{font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .rail-i .dl{font-size:10.5px;font-weight:700;border-radius:8px;padding:2px 7px;white-space:nowrap}
+  .rail-i .dl.ok{background:var(--green-soft);color:var(--green)}
+  .rail-i .dl.warn{background:var(--amber-soft);color:var(--amber)}
+  .rail-i .dl.bad{background:var(--red-soft);color:var(--red)}
+  .rail-empty{padding:18px 12px;text-align:center;font-size:11.5px;color:var(--muted)}
+  .act-i{display:flex;gap:8px;padding:8px 10px;border-radius:10px;font-size:11.5px;align-items:flex-start}
+  .act-i .dot{width:6px;height:6px;border-radius:50%;background:var(--teal);margin-top:7px;flex:0 0 6px}
+  .act-i .dot.sec{background:var(--red)}
+  .act-i .txt{flex:1;min-width:0}
+  .act-i b{font-weight:700}
+  .act-i .tm{display:block;font-size:10px;color:var(--muted);direction:ltr;text-align:right}
+
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="grid stats">
   <div class="stat">
@@ -45,6 +85,11 @@
 </div>
 
 <div class="card" id="contracts">
+  <div class="card-h">
+    <h2>التعاقدات والتصاريح</h2>
+    <div class="spacer"></div>
+    <span class="muted" style="font-size:11.5px">{{ contracts|length }} تعاقد{% if st != 'all' %} · تصفية مفعّلة{% endif %}</span>
+  </div>
   <form class="toolbar" method="get" action="{{ url_for('dashboard') }}">
     <div class="search">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
@@ -146,6 +191,85 @@
   </div>
   {% endif %}
 </div>
+
+<aside class="dash-cards">
+  <div class="rail">
+    <div class="rail-h"><b>إجراءات سريعة</b></div>
+    <div class="rail-b">
+      {% if can('contracts.create') %}
+      <a class="qact" href="{{ url_for('new_contract') }}">
+        <span class="qi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg></span>
+        <span>إنشاء تعاقد جديد<span class="sm">توليد تصريح جاهز للطباعة</span></span>
+      </a>
+      {% endif %}
+      <a class="qact" href="{{ url_for('verify_gateway') }}" target="_blank">
+        <span class="qi blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M12 3l7 3v6c0 4.5-3 7.6-7 9-4-1.4-7-4.5-7-9V6l7-3z"/><path d="M9 12l2 2 4-4"/></svg></span>
+        <span>التحقق من تصريح<span class="sm">فتح صفحة التحقق الإلكتروني</span></span>
+      </a>
+      {% if can('users.view') %}
+      <a class="qact" href="{{ url_for('admin_page', tab='users') }}">
+        <span class="qi navy"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="9" cy="8" r="3.4"/><path d="M2.6 20c.7-3.4 3.3-5.4 6.4-5.4S15 16.6 15.7 20"/></svg></span>
+        <span>إدارة المستخدمين<span class="sm">الأدوار والصلاحيات</span></span>
+      </a>
+      {% endif %}
+      {% if can('audit.view') %}
+      <a class="qact" href="{{ url_for('admin_page', tab='audit') }}">
+        <span class="qi blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M12 8v5l3 2"/><circle cx="12" cy="12" r="9"/></svg></span>
+        <span>سجل النشاط<span class="sm">آخر العمليات والتدقيق</span></span>
+      </a>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="rail">
+    <div class="rail-h">
+      <b>تصاريح تقترب من الانتهاء</b>
+      <span class="sp"></span>
+      <a href="{{ url_for('dashboard', status='soon') }}">عرض الكل</a>
+    </div>
+    <div class="rail-b">
+      {% for c in soon_list %}
+      <a class="rail-i" href="{{ url_for('view_contract', id_=c.id) }}">
+        <div class="d">
+          <div class="pm">{{ c.permit_no }}</div>
+          <div class="nm">{{ c.worker_name }}</div>
+        </div>
+        {% if c.days_left is not none and c.days_left >= 0 %}
+        <span class="dl {{ 'warn' if c.days_left <= 30 else 'ok' }}">{{ c.days_left }} يوم</span>
+        {% else %}
+        <span class="dl bad">منتهي</span>
+        {% endif %}
+      </a>
+      {% else %}
+      <div class="rail-empty">لا توجد تصاريح تنتهي خلال 45 يوماً</div>
+      {% endfor %}
+    </div>
+  </div>
+
+  {% if can('audit.view') %}
+  <div class="rail">
+    <div class="rail-h">
+      <b>آخر النشاط</b>
+      <span class="sp"></span>
+      <a href="{{ url_for('admin_page', tab='audit') }}">السجل الكامل</a>
+    </div>
+    <div class="rail-b">
+      {% for a in recent %}
+      <div class="act-i">
+        <span class="dot {{ 'sec' if a.action.startswith('security.') }}"></span>
+        <div class="txt">
+          <b>{{ action_label(a.action) }}</b>
+          <div class="muted" style="font-size:10.5px">{{ a.actor_email }}</div>
+          <span class="tm">{{ a.created_at|dt }}</span>
+        </div>
+      </div>
+      {% else %}
+      <div class="rail-empty">لا نشاط مسجّل بعد</div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+</aside>
 
 <div class="modal-back" id="delModal">
   <div class="modal">

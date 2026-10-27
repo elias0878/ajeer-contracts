@@ -1,20 +1,28 @@
 {% extends 'base.html' %}
-{% block title %}المستخدمون والصلاحيات{% endblock %}
-{% block crumb %}الإدارة / المستخدمون والصلاحيات{% endblock %}
-{% block heading %}إدارة المستخدمين{% endblock %}
+{% set tab_title = {'users': 'إدارة المستخدمين', 'perms': 'مصفوفة الصلاحيات', 'audit': 'سجل النشاط'}.get(tab, 'لوحة الإدارة') %}
+{% block title %}{{ tab_title }}{% endblock %}
+{% set tab_crumb = {'users': 'المستخدمون', 'perms': 'الصلاحيات', 'audit': 'سجل النشاط'}.get(tab, 'لوحة الإدارة') %}
+{% block crumb %}الإدارة / {{ tab_crumb }}{% endblock %}
+{% block heading %}{{ tab_title }}{% endblock %}
 
 {% block topactions %}
-  {% if can('users.create') %}
+  {% if tab == 'users' and can('users.create') %}
   <button class="btn btn-primary" onclick="openUserModal()">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
     مستخدم جديد
   </button>
+  {% elif tab == 'audit' %}
+  <a class="btn btn-ghost" href="{{ url_for('admin_page', tab='audit') }}">تحديث</a>
+  {% elif tab == 'perms' %}
+  <a class="btn btn-ghost" href="{{ url_for('admin_page', tab='users') }}">إدارة المستخدمين</a>
   {% endif %}
 {% endblock %}
 
 {% block head %}
 <style>
-  .tabs{display:flex;gap:6px;padding:6px;background:#fff;border:1px solid var(--line);border-radius:14px;margin-bottom:18px;width:fit-content;box-shadow:var(--shadow-sm)}
+  .tabs-bar{display:flex;align-items:center;gap:16px;margin-bottom:18px;flex-wrap:wrap}
+  .tabs{display:flex;gap:6px;padding:6px;background:#fff;border:1px solid var(--line);border-radius:14px;width:fit-content;box-shadow:var(--shadow-sm)}
+  .tabs-note{font-size:12px;color:var(--muted)}
   .tabs a{padding:9px 16px;border-radius:10px;font-size:13px;font-weight:700;color:var(--ink-2);display:flex;align-items:center;gap:7px}
   .tabs a.on{background:linear-gradient(135deg,var(--teal),#0f8b86);color:#fff;box-shadow:0 8px 18px rgba(19,160,154,.26)}
   .tabs a .cnt{background:rgba(0,0,0,.08);border-radius:7px;padding:1px 7px;font-size:11px}
@@ -122,6 +130,68 @@
   .matrix .yes{color:var(--green);font-weight:700}
   .matrix .no{color:#c9d4e0}
   .matrix tbody tr:hover{background:#fafcff}
+  /* ---------- matrix ---------- */
+  .matrix-wrap{border-top:1px solid var(--line-2);max-height:none;overflow:visible}
+  .matrix{width:100%;border-collapse:separate;border-spacing:0;font-size:12px;table-layout:fixed}
+  .matrix th.th-user,.matrix td.mk{width:132px}
+  .matrix thead th{
+    position:sticky;top:0;z-index:3;background:#f7fafd;border-bottom:1px solid var(--line);
+    padding:10px 12px;font-size:11px;color:var(--muted);text-align:center;white-space:nowrap}
+  .matrix thead th.th-perm{text-align:right;min-width:300px;inset-inline-start:0;z-index:4}
+  .matrix thead th.th-user{min-width:120px}
+  .matrix thead th .mh{display:block;font-size:12px;color:var(--ink);font-weight:700}
+  .matrix thead th small{font-weight:400;font-size:10px;color:var(--muted)}
+  .matrix tbody tr.grp td{
+    background:#eef4fa;border-top:1px solid var(--line);border-bottom:1px solid var(--line);
+    padding:9px 12px;font-size:12px;color:var(--navy)}
+  .matrix tbody tr.grp .cnt{font-size:10.5px;color:var(--muted);background:#fff;border:1px solid var(--line);
+    border-radius:7px;padding:1px 7px;margin-inline-start:8px}
+  .matrix td{border-bottom:1px solid var(--line-2);padding:7px 12px;text-align:center;background:#fff}
+  .matrix td.perm-name{text-align:right;position:sticky;inset-inline-start:0;z-index:2;
+    box-shadow:-1px 0 0 var(--line-2) inset}
+  .matrix td.perm-name b{display:block;font-size:12.5px;font-weight:700;line-height:1.4}
+  .matrix td.perm-name small{display:block;color:var(--muted);font-size:10.5px;line-height:1.5;font-weight:400}
+  .matrix tr.perm-row:hover td{background:#fafcff}
+  .matrix td.mk{font-size:13px;font-weight:700}
+  .matrix td.mk.has{color:var(--green)}
+  .matrix td.mk.no{color:#c9d4e0;font-weight:400}
+  .matrix tfoot td{background:#f7fafd;border-top:2px solid var(--line);padding:13px 12px;
+    font-weight:700;font-size:12.5px}
+  .matrix tfoot td small{font-weight:400;color:var(--muted);font-size:10.5px}
+  .matrix tr.hide{display:none}
+
+  /* ---------- audit ---------- */
+  .audit-wrap{overflow:visible}
+  .tbl.audit thead th{position:sticky;top:70px;z-index:2;background:#f7fafd;box-shadow:0 6px 12px -10px rgba(16,38,68,.4)}
+  .tbl.audit td{vertical-align:middle;padding:9px 12px;height:46px}
+  .tbl.audit .c-time{width:132px}
+  .tbl.audit .c-actor{width:190px}
+  .tbl.audit .c-act{width:170px}
+  .tbl.audit .c-ent{width:170px}
+  .tbl.audit td.c-ent{color:var(--ink-2);font-size:11.5px;white-space:nowrap}
+  .tbl.audit .eid{color:var(--muted)}
+  .tbl.audit .mono{font-size:11px;color:var(--muted);direction:ltr;unicode-bidi:embed;font-variant-numeric:tabular-nums}
+  .tbl.audit .who{font-size:12px;font-weight:700;color:var(--ink)}
+  .tbl.audit .dets{display:inline-flex;gap:4px;flex-wrap:nowrap;vertical-align:middle;max-width:62%}
+  .tbl.audit .dets .dt{max-width:100%}
+  .tbl.audit .dt.more{vertical-align:middle}
+  .tbl.audit .dash{color:#c9d4e0}
+  .tbl.audit tbody tr:nth-child(even) td{background:#fcfdff}
+  .tbl.audit tbody tr:hover td{background:#f6fbff}
+  .tbl.audit tbody tr.row-sec td{background:#fff8f8}
+  .tbl.audit tbody tr.row-sec:hover td{background:#fff2f2}
+  .badge.b-danger{background:var(--red-soft);color:var(--red)}
+  .badge.b-ok{background:var(--green-soft);color:var(--green)}
+  .badge.b-info{background:var(--blue-soft);color:var(--blue)}
+  .pager{display:flex;align-items:center;justify-content:center;gap:12px;padding:12px;
+    border-top:1px solid var(--line-2);font-size:12px;color:var(--muted)}
+  .sel{padding:9px 12px;border:1px solid var(--line);border-radius:11px;background:#fff;
+    font-size:12.5px;color:var(--ink);cursor:pointer;outline:none}
+  .sel:focus{border-color:#a9d9d6;box-shadow:0 0 0 4px rgba(19,160,154,.1)}
+  .pill{font-size:11.5px;color:var(--ink-2);background:#f2f7fc;border:1px solid var(--line);
+    border-radius:9px;padding:5px 11px;white-space:nowrap}
+  .hint{font-size:11.5px;color:var(--muted)}
+  .card-h .spacer{flex:1}
   .legend{display:flex;gap:14px;font-size:11px;color:var(--muted);padding:12px 16px;border-top:1px solid var(--line-2);flex-wrap:wrap}
   .dt{display:inline-block;background:#f4f8fc;border:1px solid var(--line-2);border-radius:7px;padding:1px 7px;
       margin:0 0 3px 3px;font-size:10.5px;color:var(--ink-2);max-width:270px;overflow:hidden;
@@ -132,6 +202,35 @@
 {% endblock %}
 
 {% block content %}
+<div class="tabs-bar">
+  <nav class="tabs">
+    {% if can('users.view') %}
+    <a href="{{ url_for('admin_page', tab='users') }}" class="{{ 'on' if tab == 'users' }}">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="8" r="3.4"/><path d="M2.6 20c.7-3.4 3.3-5.4 6.4-5.4S15 16.6 15.7 20"/></svg>
+      المستخدمون <span class="cnt">{{ users|length }}</span>
+    </a>
+    {% endif %}
+    {% if can('permissions.view') %}
+    <a href="{{ url_for('admin_page', tab='perms') }}" class="{{ 'on' if tab == 'perms' }}">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
+      مصفوفة الصلاحيات <span class="cnt">{{ max_perms }}</span>
+    </a>
+    {% endif %}
+    {% if can('audit.view') %}
+    <a href="{{ url_for('admin_page', tab='audit') }}" class="{{ 'on' if tab == 'audit' }}">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 8v5l3 2"/><circle cx="12" cy="12" r="9"/></svg>
+      سجل النشاط <span class="cnt">{{ audit_count }}</span>
+    </a>
+    {% endif %}
+  </nav>
+  <div class="tabs-note">
+    {% if tab == 'users' %}حسابات المنصة وأدوارها وصلاحياتها وحدودها
+    {% elif tab == 'perms' %}مقارنة صلاحيات كل مستخدم عبر جميع مجموعات الصلاحيات
+    {% else %}سجل غير قابل للتعديل لكل عملية داخل المنصة{% endif %}
+  </div>
+</div>
+
+{% if tab == 'users' %}
 <div class="grid stats">
   <div class="stat">
     <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="9" cy="8" r="3.4"/><path d="M2.6 20c.7-3.4 3.3-5.4 6.4-5.4S15 16.6 15.7 20"/><path d="M17 5.2a3.4 3.4 0 0 1 0 6.6"/></svg></div>
@@ -150,30 +249,15 @@
     <div><div class="num">{{ stats.expired }}</div><div class="lbl">منتهية الصلاحية</div></div>
   </div>
 </div>
-
-<div class="tabs">
-  {% if can('users.view') %}
-  <a href="{{ url_for('admin_page', tab='users') }}" class="{{ 'on' if tab == 'users' }}">
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="8" r="3.4"/><path d="M2.6 20c.7-3.4 3.3-5.4 6.4-5.4S15 16.6 15.7 20"/></svg>
-    المستخدمون <span class="cnt">{{ users|length }}</span>
-  </a>
-  {% endif %}
-  {% if can('permissions.view') %}
-  <a href="{{ url_for('admin_page', tab='perms') }}" class="{{ 'on' if tab == 'perms' }}">
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
-    مصفوفة الصلاحيات
-  </a>
-  {% endif %}
-  {% if can('audit.view') %}
-  <a href="{{ url_for('admin_page', tab='audit') }}" class="{{ 'on' if tab == 'audit' }}">
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 8v5l3 2"/><circle cx="12" cy="12" r="9"/></svg>
-    سجل النشاط <span class="cnt">{{ audit_count }}</span>
-  </a>
-  {% endif %}
-</div>
+{% endif %}
 
 {% if tab == 'users' %}
 <div class="card">
+  <div class="card-h">
+    <h2>حسابات المنصة</h2>
+    <div class="spacer"></div>
+    <span class="muted" style="font-size:11.5px">{{ users|length }} مستخدم · {{ stats.active }} نشط · {{ stats.expired }} منتهي</span>
+  </div>
   <div class="toolbar">
     <div class="search">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
@@ -274,47 +358,76 @@
 {% elif tab == 'perms' %}
 <div class="card">
   <div class="card-h">
-    <h2>مصفوفة الصلاحيات</h2>
+    <h2>الصلاحيات حسب المجموعة</h2>
     <div class="spacer"></div>
-    <span style="font-size:11.5px;color:var(--muted)">عرض سريع — للتعديل استخدم زر الإجراءات لكل مستخدم</span>
+    <span class="hint">✓ ممنوحة · — غير ممنوحة · التعديل من تبويب المستخدمين (زر الإجراءات)</span>
   </div>
-  <div style="overflow-x:auto">
-    <table class="matrix">
+
+  <div class="toolbar">
+    <div class="search">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+      <input type="search" id="pq" placeholder="ابحث عن صلاحية…" oninput="filterPerms(this.value)">
+    </div>
+    <div class="chips" id="pfilter">
+      <button class="chip on" data-f="all" onclick="setPermFilter('all', this)">كل الصلاحيات</button>
+      <button class="chip" data-f="granted" onclick="setPermFilter('granted', this)">الممنوحة فقط</button>
+      <button class="chip" data-f="missing" onclick="setPermFilter('missing', this)">غير الممنوحة</button>
+    </div>
+    <div class="spacer" style="flex:1"></div>
+    <span class="pill">{% for cat, items in catalog_by_category.items() %}{{ cat }}: {{ items|length }}{% if not loop.last %} · {% endif %}{% endfor %}</span>
+  </div>
+
+  <div class="matrix-wrap">
+    <table class="matrix" id="matrix">
       <thead>
         <tr>
-          <th>المستخدم</th>
-          {% for cat in catalog_by_category.keys() %}
-          <th>{{ cat }}</th>
+          <th class="th-perm">الصلاحية</th>
+          {% for u in users %}
+          <th class="th-user">
+            <span class="mh">{{ (u.full_name or u.email).split(' ')[0] }}</span>
+            <small>{{ 'المالك' if u.is_owner else (roles.get(u.role, u.role)) }}</small>
+          </th>
           {% endfor %}
-          <th>الإجمالي</th>
         </tr>
       </thead>
       <tbody>
-        {% for u in users %}
-        <tr>
-          <td>{{ u.full_name }}{% if u.is_owner %} <span class="badge b-owner">المالك</span>{% endif %}</td>
-          {% for cat, items in catalog_by_category.items() %}
-            {% set granted = items|selectattr('key','in',u.permissions)|list|length %}
-            <td>
-              {% if u.is_owner %}
-                <span class="yes">{{ items|length }}/{{ items|length }}</span>
-              {% elif granted == 0 %}
-                <span class="no">—</span>
-              {% else %}
-                <span class="{{ 'yes' if granted == items|length else '' }}">{{ granted }}/{{ items|length }}</span>
-              {% endif %}
+        {% for cat, items in catalog_by_category.items() %}
+        <tr class="grp">
+          <td colspan="{{ users|length + 1 }}">
+            <b>{{ cat }}</b><span class="cnt">{{ items|length }} صلاحية</span>
+          </td>
+        </tr>
+        {% for p in items %}
+        <tr class="perm-row" data-key="{{ p.key }}" data-label="{{ p.label }} {{ p.description }}"
+            data-granted="{{ 1 if (users and (users[0].is_owner or p.key in users[0].permissions)) else 0 }}">
+          <td class="perm-name">
+            <b>{{ p.label }}</b>
+            <small>{{ p.description }}</small>
+          </td>
+          {% for u in users %}
+            {% set has = u.is_owner or p.key in u.permissions %}
+            <td class="mk {{ 'has' if has else 'no' }}" data-has="{{ 1 if has else 0 }}">
+              {{ '✓' if has else '—' }}
             </td>
           {% endfor %}
-          <td><b>{{ u.permissions|length if not u.is_owner else max_perms }}</b> / {{ max_perms }}</td>
         </tr>
         {% endfor %}
+        {% endfor %}
       </tbody>
+      <tfoot>
+        <tr>
+          <td class="perm-name"><b>الإجمالي</b></td>
+          {% for u in users %}
+          <td class="mk total">{{ max_perms if u.is_owner else u.permissions|length }}<small> / {{ max_perms }}</small></td>
+          {% endfor %}
+        </tr>
+      </tfoot>
     </table>
   </div>
   <div class="legend">
-    {% for cat, items in catalog_by_category.items() %}
-      <span><b>{{ cat }}:</b> {{ items|length }} صلاحية</span>
-    {% endfor %}
+    <span>• المالك يملك جميع الصلاحيات ضمنياً ولا يمكن تقييدها</span>
+    <span>• الصلاحيات الفعلية تُطبَّق على الواجهة والـ API معاً</span>
+    <span>• كل تعديل يُسجَّل في سجل النشاط</span>
   </div>
 </div>
 
@@ -324,9 +437,9 @@
     <input type="hidden" name="tab" value="audit">
     <div class="search">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
-      <input type="search" name="aq" value="{{ aq }}" placeholder="بحث في المنفّذ أو العملية أو رقم العنصر…">
+      <input type="search" name="aq" value="{{ aq }}" placeholder="بحث بالمنفّذ أو العملية أو رقم العنصر…">
     </div>
-    <select name="action" class="btn" style="padding:9px 12px">
+    <select name="action" class="sel">
       <option value="">كل العمليات</option>
       <option value="auth." {{ 'selected' if aact=='auth.' }}>تسجيل الدخول</option>
       <option value="contracts." {{ 'selected' if aact=='contracts.' }}>التعاقدات</option>
@@ -335,47 +448,71 @@
       <option value="settings." {{ 'selected' if aact=='settings.' }}>الإعدادات</option>
       <option value="security." {{ 'selected' if aact=='security.' }}>محاولات محجوبة</option>
     </select>
-    <button class="btn" type="submit">تصفية</button>
+    <button class="btn btn-primary btn-sm" type="submit">تصفية</button>
+    {% if aq or aact %}
+    <a class="btn btn-sm" href="{{ url_for('admin_page', tab='audit') }}">مسح</a>
+    {% endif %}
     <div class="spacer" style="flex:1"></div>
+    <span class="pill">{{ audit_total }} عملية{% if audit_pages > 1 %} · صفحة {{ audit_page }} من {{ audit_pages }}{% endif %}</span>
     <a class="btn btn-ghost btn-sm" href="{{ url_for('api_audit', limit=500) }}" target="_blank">تصدير JSON</a>
   </form>
 
-  <div style="overflow-x:auto">
-  <table class="tbl">
-    <thead>
-      <tr>
-        <th>الوقت</th>
-        <th>المنفّذ</th>
-        <th>العملية</th>
-        <th>العنصر</th>
-        <th>التفاصيل</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for a in audit %}
-      <tr>
-        <td style="white-space:nowrap;color:var(--muted);font-size:11.5px">{{ a.created_at|dt }}</td>
-        <td style="white-space:nowrap"><b style="font-size:12px">{{ a.actor_email }}</b></td>
-        <td><span class="badge {{ 'b-off' if a.action.startswith('security.') else ('b-off' if 'delete' in a.action else ('b-on' if 'create' in a.action else ('b-admin' if 'users' in a.action or 'permissions' in a.action else 'b-mut'))) }}">{{ action_label(a.action) }}</span></td>
-        <td style="color:var(--muted);font-size:11.5px;white-space:nowrap">{{ entity_label(a.entity) }}{% if a.entity_id %} #{{ a.entity_id }}{% endif %}</td>
-        <td style="max-width:380px">
-          {% set pairs = details_pairs(a.details) %}
-          {% if pairs %}
-            {% for k, v in pairs[:3] %}
-              <span class="dt"><b>{{ k }}</b><span dir="auto">{{ v|truncate(48) }}</span></span>
-            {% endfor %}
-            {% if pairs|length > 3 %}<span class="dt more" title="{{ details_text(a.details) }}">+{{ pairs|length - 3 }}</span>{% endif %}
-          {% else %}<span style="color:#c9d4e0">—</span>{% endif %}
-        </td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
+  <div class="audit-wrap">
+    <table class="tbl audit">
+      <thead>
+        <tr>
+          <th class="c-time">الوقت</th>
+          <th class="c-actor">المنفّذ</th>
+          <th class="c-act">العملية</th>
+          <th class="c-ent">العنصر</th>
+          <th class="c-det">التفاصيل</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for a in audit %}
+        {% set sec = a.action.startswith('security.') %}
+        <tr class="{{ 'row-sec' if sec else '' }}">
+          <td class="c-time"><span class="mono">{{ a.created_at|dt }}</span></td>
+          <td class="c-actor"><span class="who">{{ a.actor_email }}</span></td>
+          <td class="c-act">
+            <span class="badge {{ 'b-danger' if sec else ('b-ok' if 'create' in a.action or 'login' == a.action.split('.')[-1] and 'fail' not in a.action else ('b-danger' if 'delete' in a.action or 'revoke' in a.action else ('b-info' if 'update' in a.action or 'pdf' in a.action or 'print' in a.action else 'b-mut'))) }}">{{ action_label(a.action) }}</span>
+          </td>
+          <td class="c-ent">{{ entity_label(a.entity) }}{% if a.entity_id %} <span class="eid">#{{ a.entity_id }}</span>{% endif %}</td>
+          <td class="c-det">
+            {% set pairs = details_pairs(a.details) %}
+            {% if pairs %}
+              <span class="dets">
+                <span class="dt" title="{{ details_text(a.details) }}"><b>{{ pairs[0][0] }}</b><span dir="auto">{{ pairs[0][1]|truncate(34) }}</span></span>
+              </span>
+              {% if pairs|length > 1 %}<span class="dt more" title="{{ details_text(a.details) }}">+{{ pairs|length - 1 }}</span>{% endif %}
+            {% else %}<span class="dash">—</span>{% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
   </div>
+
   {% if not audit %}
-  <div class="empty">لا توجد عمليات مسجلة بعد</div>
+  <div class="empty">لا توجد عمليات مطابقة</div>
   {% endif %}
-  <div class="legend"><span>يُسجَّل كل إجراء تلقائياً ولا يمكن لأي مستخدم تعديل السجل أو حذفه</span></div>
+
+  {% if audit_pages > 1 %}
+  <nav class="pager">
+    {% if audit_page > 1 %}
+      <a class="btn btn-sm" href="{{ url_for('admin_page', tab='audit', aq=aq, action=aact, ap=audit_page-1) }}">السابق</a>
+    {% endif %}
+    <span>صفحة {{ audit_page }} من {{ audit_pages }}</span>
+    {% if audit_page < audit_pages %}
+      <a class="btn btn-sm" href="{{ url_for('admin_page', tab='audit', aq=aq, action=aact, ap=audit_page+1) }}">التالي</a>
+    {% endif %}
+  </nav>
+  {% endif %}
+
+  <div class="legend">
+    <span>• يُسجَّل كل إجراء تلقائياً ولا يمكن لأي مستخدم تعديل السجل أو حذفه</span>
+    <span>• الصفوف الحمراء = محاولات وصول محجوبة</span>
+  </div>
 </div>
 {% endif %}
 
@@ -541,6 +678,28 @@ const CAN = {
 };
 const PERM_LABELS = {{ permission_map|tojson }};
 let editId = null, actUser = null, filterState = 'all', searchTerm = '';
+
+/* ---------------- matrix search & filter ---------------- */
+let permFilter = 'all';
+function filterPerms(term){
+  const q = (term||'').trim().toLowerCase();
+  document.querySelectorAll('#matrix tr.perm-row').forEach(function(tr){
+    const okText = !q || (tr.dataset.label || '').toLowerCase().includes(q);
+    const granted = tr.dataset.granted === '1';
+    const okF = permFilter === 'all' || (permFilter === 'granted' && granted) || (permFilter === 'missing' && !granted);
+    tr.classList.toggle('hide', !(okText && okF));
+  });
+  document.querySelectorAll('#matrix tr.grp').forEach(function(g){
+    let n = g.nextElementSibling, any = false;
+    while (n && n.classList.contains('perm-row')) { if (!n.classList.contains('hide')) any = true; n = n.nextElementSibling; }
+    g.classList.toggle('hide', !any);
+  });
+}
+function setPermFilter(f, el){
+  permFilter = f;
+  document.querySelectorAll('#pfilter .chip').forEach(b => b.classList.toggle('on', b === el));
+  filterPerms(document.getElementById('pq').value);
+}
 
 /* ---------------- search & filter ---------------- */
 function filterUsers(term){ searchTerm = (term||'').trim().toLowerCase(); applyFilter(); }

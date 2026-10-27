@@ -26,8 +26,21 @@
 {% block content %}
 <div class="view-grid">
   <div class="doc-stage">
-    <div class="doc-frame" style="max-width:780px">
-      <iframe src="{{ url_for('embed_contract', id_=c.id) }}" title="مستند التعاقد"></iframe>
+    <div class="doc-panel">
+      <div class="doc-panel-h">
+        <div>
+          <b>نموذج التصريح</b>
+          <small>مطابق للنموذج الرسمي · مقاس A4 عرض 1000pt</small>
+        </div>
+        <div class="doc-panel-a">
+          {% if can('contracts.print') %}<a class="btn btn-sm" href="{{ url_for('print_contract', id_=c.id) }}" target="_blank">فتح للطباعة</a>{% endif %}
+          {% if can('contracts.export') %}<a class="btn btn-sm btn-navy" href="{{ url_for('pdf_contract', id_=c.id) }}">PDF</a>{% endif %}
+        </div>
+      </div>
+      <div class="doc-frame">
+        <iframe data-fit="self" src="{{ url_for('embed_contract', id_=c.id) }}" title="مستند التعاقد"
+                scrolling="no" style="aspect-ratio:{{ doc_w }} / {{ doc_h }}"></iframe>
+      </div>
     </div>
   </div>
 
@@ -116,4 +129,19 @@ function copyLink(){
   if (navigator.clipboard) navigator.clipboard.writeText(i.value).then(function(){ toast('تم نسخ رابط التحقق'); });
 }
 </script>
+{% endblock %}
+
+{% block head %}
+<style>
+  .doc-panel{background:#fff;border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);
+    overflow:hidden;display:flex;flex-direction:column}
+  .doc-panel-h{display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid var(--line);
+    background:#f8fbff}
+  .doc-panel-h b{display:block;font-size:13px}
+  .doc-panel-h small{display:block;font-size:11px;color:var(--muted)}
+  .doc-panel-a{margin-inline-start:auto;display:flex;gap:8px}
+  .doc-panel .doc-frame{border:0;border-radius:0;box-shadow:none;background:#eef1f6;padding:0;max-width:none}
+  .doc-panel .doc-frame iframe{position:static;width:100%;height:auto;max-height:82vh;border:0;
+    background:#eef1f6;box-shadow:none;transform:none!important}
+</style>
 {% endblock %}

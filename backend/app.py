@@ -22,6 +22,7 @@ import authstore as store
 from auth import (account_expired, can, can_any, can_manage_target, current_user,
                   deny, display_name, ensure_bootstrap, is_owner, is_self,
                   log_audit, login_required, permission_required, permissions)
+import doclayout
 from db import FIELDS, get_db
 from pdfdoc import build_pdf
 from permissions import (CATEGORIES, PERMISSION_CATALOG, PERMISSION_KEYS,
@@ -123,6 +124,21 @@ def ensure_tokens():
         pass
 
 
+def days_left(end_date, today=None):
+    """عدد الأيام المتبقية حتى نهاية التصريح (None إذا تعذّر التحليل)."""
+    if not end_date:
+        return None
+    today = today or date.today()
+    if isinstance(end_date, str):
+        try:
+            end_date = datetime.strptime(end_date[:10], '%Y-%m-%d').date()
+        except ValueError:
+            return None
+    elif isinstance(end_date, datetime):
+        end_date = end_date.date()
+    return (end_date - today).days
+
+
 def status_of(c):
     today = date.today()
     try:
@@ -140,12 +156,23 @@ def status_of(c):
 
 
 def doc_context(c, s=None):
+    """سياق صفحة الطباعة/الـ PDF — يضم تخطيط الوثيقة الجاهز (doclayout)."""
     s = s or settings()
     ctx = dict(c)
     ctx['qr'] = qr_data_uri(verify_link(c, s=s))
     ctx['verify_domain'] = s.get('verify_domain') or PUBLIC_BASE or request.url_root.rstrip('/')
     ctx['verify_url'] = verify_link(c, s=s)
+    ctx['doc'] = doclayout.build(ctx, verify_domain=ctx['verify_domain'])
     return ctx
+
+
+def render_doc(c, mode, auto_print=False):
+    """يعرض صفحة الطباعة (SVG بإحداثيات مقيسة) بنفس بيانات الـ PDF."""
+    ctx = doc_context(c)
+    return render_template('contract_doc.html', c=ctx, doc=ctx['doc'], mode=mode,
+                           auto_print=auto_print, assets=url_for('static', filename=''),
+                           pdf_url=url_for('pdf_contract', id_=c.get('id') or 0),
+                           back_url=url_for('dashboard' if mode != 'embed' else 'dashboard'))
 
 
 def validate(form):
@@ -566,12 +593,29 @@ def dashboard():
         'expired': sum(1 for c in contracts if c['status'] == 'expired'),
         'pending': sum(1 for c in contracts if c['status'] == 'pending'),
     }
+    today = date.today()
+    soon_list = []
+    for c in contracts:
+        if c['status'] in ('soon', 'expired'):
+            left = days_left(c.get('end_date'), today)
+            c['days_left'] = left
+            if left is not None and -7 <= left <= 45:
+                soon_list.append(c)
+    soon_list.sort(key=lambda x: (x.get('days_left') if x.get('days_left') is not None else 9999))
+    soon_list = soon_list[:4]
+    recent = []
+    if can('audit.view'):
+        try:
+            recent = store.list_audit(limit=6)
+        except Exception:
+            recent = []
     if st == 'active':
         contracts = [c for c in contracts if c['status'] in ('active', 'soon')]
     elif st != 'all':
         contracts = [c for c in contracts if c['status'] == st]
     return render_template('dashboard.html', page='dashboard', contracts=contracts,
                            stats=stats, settings=settings(), q=q, st=st,
+                           soon_list=soon_list, recent=recent,
                            backend=db.backend, scope='all' if can('contracts.view_all') else 'own')
 
 
@@ -663,9 +707,12 @@ def view_contract(id_):
         return err
     c['status'], c['status_label'] = status_of(c)
     c['is_mine'] = owns(c)
+    doc = doclayout.build(dict(c, verify_domain=(settings().get('verify_domain') or '')),
+                          verify_domain=settings().get('verify_domain'))
     return render_template('view.html', page='dashboard', c=c, settings=settings(),
                            can_edit=can_edit(c), can_del=can_delete(c),
-                           verify_url=verify_link(c))
+                           verify_url=verify_link(c),
+                           doc_w=doc['w'], doc_h=doc['h'])
 
 
 @app.route('/contracts/<int:id_>/delete', methods=['POST'])
@@ -702,6 +749,13 @@ def duplicate_contract(id_):
     return redirect(url_for('edit_contract', id_=row['id']))
 
 
+@app.route('/contracts')
+@login_required
+def contracts_index():
+    """اختصار قائمة التعاقدات (نفس لوحة التحكم) — يحافظ على الروابط القديمة."""
+    return redirect(url_for('dashboard', **request.args))
+
+
 @app.route('/contracts/<int:id_>/print')
 @login_required
 def print_contract(id_):
@@ -712,8 +766,7 @@ def print_contract(id_):
         return render_template('error.html', page='', error='ليست لديك صلاحية طباعة الوثائق',
                                title='صلاحية غير كافية'), 403
     auto = request.args.get('auto', '1') != '0'
-    return render_template('contract_doc.html', c=doc_context(c), mode='print',
-                           auto_print=auto, assets=url_for('static', filename=''))
+    return render_doc(c, 'print', auto)
 
 
 @app.route('/contracts/<int:id_>/embed')
@@ -722,8 +775,7 @@ def embed_contract(id_):
     c, err = require_contract(id_, 'view')
     if err:
         return err
-    return render_template('contract_doc.html', c=doc_context(c), mode='embed',
-                           auto_print=False, assets=url_for('static', filename=''))
+    return render_doc(c, 'embed', False)
 
 
 @app.route('/contracts/<int:id_>/pdf')
@@ -737,7 +789,7 @@ def pdf_contract(id_):
         abort(403)
     ctx = doc_context(c)
     try:
-        raw = build_pdf(ctx, qr_bytes(verify_link(c)))
+        raw = build_pdf(ctx, qr_bytes(verify_link(c)), verify_domain=ctx['verify_domain'])
     except Exception:
         return redirect(url_for('print_contract', id_=id_, auto=0))
     log_audit('contracts.pdf', 'contract', id_, {'permit_no': c['permit_no']})
@@ -753,8 +805,7 @@ def preview():
     raw = request.get_json(silent=True) if request.is_json else request.form.to_dict()
     data = {k: (raw.get(k) or '').strip() for k in FIELDS}
     data.setdefault('id', 0)
-    return render_template('contract_doc.html', c=doc_context(data), mode='embed',
-                           auto_print=False, assets=url_for('static', filename=''))
+    return render_doc(data, 'embed', False)
 
 
 # ---------------------------------------------------------------- settings
@@ -808,12 +859,24 @@ def admin_page():
         cb = u.get('created_by')
         u['created_by_name'] = by_id[int(cb)]['full_name'] if cb and int(cb) in by_id else '—'
 
-    audit = []
+    audit, audit_total, audit_page, audit_pages = [], 0, 1, 1
+    aq = (request.args.get('aq') or '').strip()
+    aact = (request.args.get('action') or '').strip()
+    aper = 40
     if can('audit.view') and tab == 'audit':
-        aq = (request.args.get('aq') or '').strip()
-        aact = (request.args.get('action') or '').strip()
         try:
-            audit = store.list_audit(limit=300, q=aq or None, action=aact or None)
+            audit_page = max(1, int(request.args.get('ap') or 1))
+        except ValueError:
+            audit_page = 1
+        try:
+            audit_total = store.count_audit_filtered(q=aq or None, action=aact or None)
+        except Exception:
+            audit_total = 0
+        audit_pages = max(1, (audit_total + aper - 1) // aper)
+        audit_page = min(audit_page, audit_pages)
+        try:
+            audit = store.list_audit(limit=aper, offset=(audit_page - 1) * aper,
+                                     q=aq or None, action=aact or None)
         except Exception as e:
             flash(f'تعذّر تحميل سجل النشاط: {e}', 'error')
 
@@ -831,9 +894,10 @@ def admin_page():
         pass
     return render_template('admin.html', page='admin', users=users, audit=audit,
                            stats=stats, tab=tab, audit_count=audit_count,
-                           aq=(request.args.get('aq') or ''), aact=(request.args.get('action') or ''),
-                           role_presets=ROLE_PRESETS, roles=ROLE_LABELS,
-                           max_perms=len(PERMISSION_KEYS))
+                           audit_total=audit_total, audit_page=audit_page, audit_pages=audit_pages,
+                           aq=aq, aact=aact, role_presets=ROLE_PRESETS, roles=ROLE_LABELS,
+                           max_perms=len(PERMISSION_KEYS),
+                           perm_catalog=PERMISSION_CATALOG, catalog_by_category=catalog_by_category())
 
 
 @app.route('/api/admin/users', methods=['GET', 'POST'])

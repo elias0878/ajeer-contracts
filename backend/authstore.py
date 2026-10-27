@@ -359,8 +359,22 @@ def add_audit(actor_id, actor_email, action, entity='', entity_id='', details=No
     c.commit()
 
 
-def list_audit(limit=200, actor=None, action=None, q=None):
+def _audit_where(actor=None, action=None, q=None):
+    where, args = [], []
+    if actor:
+        where.append('actor_email LIKE ?'); args.append(f'%{actor}%')
+    if action:
+        where.append('action LIKE ?'); args.append(f'{action}%')
+    if q:
+        where.append('(action LIKE ? OR entity LIKE ? OR entity_id LIKE ? OR actor_email LIKE ?)')
+        args += [f'%{q}%'] * 4
+    return where, args
+
+
+def list_audit(limit=200, actor=None, action=None, q=None, offset=0):
     params = {'select': '*', 'order': 'id.desc', 'limit': str(limit)}
+    if offset:
+        params['offset'] = str(offset)
     if USE_SUPABASE:
         if actor:
             params['actor_email'] = f'ilike.*{actor}*'
@@ -371,19 +385,12 @@ def list_audit(limit=200, actor=None, action=None, q=None):
             params['or'] = f'(action.ilike.*{safe}*,entity.ilike.*{safe}*,entity_id.ilike.*{safe}*,actor_email.ilike.*{safe}*)'
         return _rest('app_audit_log', params=params) or []
 
-    where, args = [], []
-    if actor:
-        where.append('actor_email LIKE ?'); args.append(f'%{actor}%')
-    if action:
-        where.append('action LIKE ?'); args.append(f'{action}%')
-    if q:
-        where.append('(action LIKE ? OR entity LIKE ? OR entity_id LIKE ? OR actor_email LIKE ?)')
-        args += [f'%{q}%'] * 4
+    where, args = _audit_where(actor, action, q)
     sql = 'SELECT * FROM app_audit_log'
     if where:
         sql += ' WHERE ' + ' AND '.join(where)
-    sql += ' ORDER BY id DESC LIMIT ?'
-    args.append(limit)
+    sql += ' ORDER BY id DESC LIMIT ? OFFSET ?'
+    args += [limit, offset]
     rows = _rows(_sql().execute(sql, tuple(args)))
     for r in rows:
         try:
@@ -391,6 +398,19 @@ def list_audit(limit=200, actor=None, action=None, q=None):
         except Exception:
             r['details'] = {}
     return rows
+
+
+def count_audit_filtered(actor=None, action=None, q=None):
+    """عدد سجلات النشاط المطابقة لعوامل التصفية (للصفحات)."""
+    if USE_SUPABASE:
+        params = {'select': 'id'}
+        rows = _rest('app_audit_log', params=params) or []
+        return len(rows)
+    where, args = _audit_where(actor, action, q)
+    sql = 'SELECT COUNT(*) FROM app_audit_log'
+    if where:
+        sql += ' WHERE ' + ' AND '.join(where)
+    return _sql().execute(sql, tuple(args)).fetchone()[0]
 
 
 def count_recent_failures(action, entity, entity_id, minutes=15):
