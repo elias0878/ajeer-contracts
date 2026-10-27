@@ -269,6 +269,31 @@ def my_contracts(q=None):
     return []
 
 
+
+# ----------------------------------------------------------------------
+#  اسم بديل بصيغة «نقاط»: /ajeer.qiwa.sa/...  (يُخدَم دون تحويل)
+# ----------------------------------------------------------------------
+DOTTED_PREFIXES = ('/ajeer.qiwa.sa', '/ajeer.qiwa')
+
+
+class _DottedAlias:
+    """يجعل المسارات التي تبدأ بـ /ajeer.qiwa.sa تعمل كما هي دون تغيير الرابط."""
+
+    def __init__(self, wsgi):
+        self.wsgi = wsgi
+
+    def __call__(self, environ, start_response):
+        path = environ.get('PATH_INFO', '') or '/'
+        for pre in DOTTED_PREFIXES:
+            if path == pre or path.startswith(pre + '/'):
+                environ['PATH_INFO'] = path[len(pre):] or '/'
+                break
+        return self.wsgi(environ, start_response)
+
+
+app.wsgi_app = _DottedAlias(app.wsgi_app)
+
+
 # ---------------------------------------------------------------- auth hooks
 @app.before_request
 def _before():
