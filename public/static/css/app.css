@@ -6,8 +6,8 @@
 @font-face{font-family:'Almarai';src:url('/static/fonts/Almarai-Bold.ttf') format('truetype');font-weight:700;font-display:swap}
 
 :root{
-  --navy:#0b2545; --navy-2:#0f3159; --navy-3:#16416f;
-  --teal:#13a09a; --teal-2:#0e837e; --teal-soft:#e6f6f5;
+  --navy:#05184d; --navy-2:#0a2560; --navy-3:#123a7a;
+  --teal:#2f9e5a; --teal-2:#237b46; --teal-soft:#e8f6ed;
   --ink:#122538; --ink-2:#33506d; --muted:#7286a0;
   --bg:#f2f6fb; --card:#ffffff; --line:#e2e9f2; --line-2:#eef3f9;
   --green:#159a63; --green-soft:#e6f7ef;
@@ -34,7 +34,7 @@ button,input,select,textarea{font-family:inherit;font-size:inherit}
 .shell{display:flex;min-height:100vh}
 .sidebar{
   width:266px;flex:0 0 266px;position:sticky;top:0;height:100vh;
-  background:linear-gradient(180deg,#0b2545 0%,#0d2c52 55%,#103358 100%);
+  background:linear-gradient(180deg,#05184d 0%,#08205a 55%,#0c2a6b 100%);
   color:#dbe6f2;display:flex;flex-direction:column;padding:22px 16px;
   box-shadow:-1px 0 0 rgba(255,255,255,.04) inset;z-index:20;
 }
@@ -83,7 +83,7 @@ a.brand{color:inherit;text-decoration:none}
   padding:2px 8px;white-space:nowrap;line-height:1.5}
 .topbar-back:hover{background:#e3f6f4;border-color:#a9e3df}
 .topbar-back svg{width:12px;height:12px}
-.avatar{width:38px;height:38px;border-radius:12px;background:linear-gradient(135deg,#13a09a,#2f6fd0);
+.avatar{width:38px;height:38px;border-radius:12px;background:linear-gradient(135deg,#2f9e5a,#05184d);
   color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;
   box-shadow:var(--shadow-sm)}
 .content{padding:26px 28px 60px;max-width:1500px;width:100%;margin:0 auto}
@@ -100,7 +100,7 @@ a.brand{color:inherit;text-decoration:none}
 .btn-primary{background:linear-gradient(135deg,var(--teal),#0f8b86);border-color:transparent;color:#fff;
   box-shadow:0 8px 20px rgba(19,160,154,.28)}
 .btn-primary:hover{box-shadow:0 12px 26px rgba(19,160,154,.34)}
-.btn-navy{background:linear-gradient(135deg,#123a63,#0b2545);border-color:transparent;color:#fff}
+.btn-navy{background:linear-gradient(135deg,#123a7a,#05184d);border-color:transparent;color:#fff}
 .btn-danger{color:var(--red);border-color:#f3d2d2;background:#fff}
 .btn-danger:hover{background:var(--red-soft)}
 .btn-ghost{background:transparent;border-color:transparent;color:var(--ink-2)}
@@ -274,7 +274,7 @@ table.list tbody tr:hover{background:#fafdff}
 
 /* ---------------- misc ---------------- */
 .toast-wrap{position:fixed;bottom:24px;left:24px;display:flex;flex-direction:column;gap:8px;z-index:60}
-.toast{background:#0b2545;color:#fff;padding:11px 16px;border-radius:12px;font-size:13px;font-weight:700;
+.toast{background:#05184d;color:#fff;padding:11px 16px;border-radius:12px;font-size:13px;font-weight:700;
   box-shadow:var(--shadow-lg);animation:in .25s ease}
 @keyframes in{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
 .modal-back{position:fixed;inset:0;background:rgba(8,24,44,.42);display:none;align-items:center;justify-content:center;z-index:70;

@@ -4,7 +4,7 @@
 
 **نظام ويب عربي (RTL) لإدارة العقود وتصاريح العمل، يولّد مستند PDF مطابقاً للنموذج الرسمي حرفياً.**
 
-[![Live](https://img.shields.io/badge/Live-ajeer--contracts--app.vercel.app-13a09a?logo=vercel&logoColor=white)](https://ajeer-contracts-app.vercel.app)
+[![Live](https://img.shields.io/badge/Live-ajeer--qiwa.vercel.app-2f9e5a?logo=vercel&logoColor=white)](https://ajeer-qiwa.vercel.app)
 [![Supabase](https://img.shields.io/badge/Supabase-PostgreSQL-3ECF8E?logo=supabase&logoColor=white)](https://supabase.com)
 [![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)](https://python.org)
 
@@ -18,8 +18,8 @@
 |---|---|
 | 🗂️ **إدارة كاملة للعقود** | إنشاء، عرض، تعديل، تكرار، حذف، بحث، تصفية حسب الحالة |
 | 🖊️ **معاينة حيّة** | المستند يتحدّث أثناء الكتابة في النموذج |
-| 📄 **PDF مطابق للنموذج** | 612×792pt، نفس الحدود والخطوط وأحجام النص وموضع رمز QR |
-| 🔳 **رمز QR للتحقق** | رابط فريد عشوائي لكل تعاقد: `/agiar/index.php?id=<64 حرفاً>` — لا يكشف رقم التصريح ويعرض حالة التصريح وصلاحيته |
+| 📄 **PDF مطابق للنموذج** | 1000×1524.66pt (A4)، نفس الحدود والخطوط وأحجام النص وموضع رمز QR |
+| 🔳 **رمز QR للتحقق** | رابط فريد عشوائي لكل تعاقد: `/verify/?id=<64 حرفاً>` — لا يكشف رقم التصريح ويعرض حالة التصريح وصلاحيته |
 | 📊 **لوحة تحكم** | إحصاءات: إجمالي / سارية / تنتهي خلال 30 يوماً / منتهية |
 | ☁️ **قاعدة بيانات سحابية** | Supabase (PostgreSQL) عبر PostgREST، مع احتياطي SQLite محلي |
 | ⚡ **Serverless** | يعمل على Vercel Python Runtime بدون أي مكتبات نظام |
@@ -66,7 +66,7 @@
 العميل (RTL/HTML/CSS/JS)
         │
         ▼
-   Flask App  ──►  pdfdoc.py (fpdf2 + HarfBuzz)  ──►  PDF 612×792pt
+   Flask App  ──►  pdfdoc.py (fpdf2 + HarfBuzz)  ──►  PDF 1000×1524.66pt (A4)
         │
         ▼
    db.py  ──►  Supabase REST (PostgREST)  /  SQLite (تطوير)
@@ -92,12 +92,12 @@ ajeer-contracts/
 
 | الوجهة | الرابط |
 |---|---|
-| 🏠 **المنصة** | **https://ajeer-contracts-app.vercel.app** |
-| 🔐 لوحة التحكم | https://ajeer-contracts-app.vercel.app/ |
-| ➕ إنشاء تعاقد | https://ajeer-contracts-app.vercel.app/contracts/new |
-| 📄 مستند PDF | https://ajeer-contracts-app.vercel.app/contracts/1/pdf |
-| ✅ التحقق (QR) | https://ajeer-contracts-app.vercel.app/verify/TQ101515442 |
-| ❤️ حالة النظام | https://ajeer-contracts-app.vercel.app/api/health |
+| 🏠 **المنصة** | **https://ajeer-qiwa.vercel.app** |
+| 🔐 لوحة التحكم | https://ajeer-qiwa.vercel.app/ |
+| ➕ إنشاء تعاقد | https://ajeer-qiwa.vercel.app/contracts/new |
+| 📄 مستند PDF | https://ajeer-qiwa.vercel.app/contracts/1/pdf |
+| ✅ التحقق (QR) | https://ajeer-qiwa.vercel.app/verify/TQ101515442 |
+| ❤️ حالة النظام | https://ajeer-qiwa.vercel.app/api/health |
 | 💻 الكود المصدري | https://github.com/elias0878/ajeer-contracts |
 
 ---
@@ -246,7 +246,7 @@ cd backend && python app.py     # http://localhost:5000
 | `SUPABASE_URL` | `https://<ref>.supabase.co` |
 | `SUPABASE_SERVICE_KEY` | مفتاح service_role (سري) |
 | `SECRET_KEY` | مفتاح تشفير جلسات Flask |
-| `PUBLIC_BASE_URL` | `https://ajeer-contracts-app.vercel.app` |
+| `PUBLIC_BASE_URL` | `https://ajeer-qiwa.vercel.app` |
 | `OWNER_EMAIL` | (اختياري) بريد المالك الأول — يُستخدم فقط عند التهيئة الأولى |
 | `OWNER_PASSWORD` | (اختياري) كلمة مرور المالك الأول — يُستخدم فقط عند التهيئة الأولى |
 
