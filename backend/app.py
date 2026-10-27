@@ -70,8 +70,20 @@ def qr_data_uri(text):
     return 'data:image/png;base64,' + base64.b64encode(qr_bytes(text)).decode()
 
 
+def _host_base():
+    """النطاق الفعلي الذي يفتح منه المستخدم المنصة (يتكيّف تلقائياً مع أي نطاق مربوط)."""
+    try:
+        host = request.host.split(':')[0].lower()
+    except RuntimeError:
+        return ''
+    if not host or host in ('localhost', '127.0.0.1') or host.endswith('.local') \
+            or host.startswith('192.168.') or host.startswith('10.'):
+        return ''
+    return request.host_url.rstrip('/')
+
+
 def base_url():
-    return PUBLIC_BASE or request.url_root.rstrip('/')
+    return _host_base() or PUBLIC_BASE or request.url_root.rstrip('/')
 
 
 HIJRI_EPOCH = 579  # 622 م - 43 فرق التقويمين ≈ 579
@@ -97,7 +109,7 @@ def new_verify_token():
 def verify_base(s=None):
     """أساس رابط التحقق: النطاق + المسار، مثل https://<domain>/verify/"""
     s = s or settings()
-    domain = (s.get('verify_domain') or DEFAULT_VERIFY_DOMAIN
+    domain = (_host_base() or s.get('verify_domain') or DEFAULT_VERIFY_DOMAIN
               or PUBLIC_BASE or request.url_root).rstrip('/')
     path = (s.get('verify_path') or DEFAULT_VERIFY_PATH).strip()
     if path and not path.startswith('/'):
@@ -827,7 +839,8 @@ def settings_page():
                   'official_verify_url', 'verify_partners', 'default_provider_name',
                   'default_provider_no', 'default_site'):
             v = (request.form.get(k) or '').strip()
-            if v:
+            if k == 'verify_domain' or v:
+                # نطاق التحقق يُحفظ فارغاً أيضاً = يتبع النطاق الذي تُفتح به المنصة
                 db.save_setting(k, v)
                 changes[k] = v
         log_audit('settings.update', 'settings', '', changes)
