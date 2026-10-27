@@ -35,12 +35,13 @@ def main():
     # --- المصادقة (إلزامية قبل أي صفحة إدارية) ---
     anon = app.test_client()
     r = anon.get('/')
-    check('الدخول بلا مسار يحوّل إلى صفحة الهبوط /l',
-          r.status_code == 302 and r.headers.get('Location', '').endswith('/l'),
+    check('الدخول بلا مسار يحوّل إلى الموقع الرسمي https://ajeer.qiwa.sa/',
+          r.status_code == 302 and r.headers.get('Location', '') == 'https://ajeer.qiwa.sa/',
           r.headers.get('Location', ''))
     r = anon.get('/l')
-    check('صفحة الهبوط العامة متاحة للزائر (200)', r.status_code == 200,
-          str(r.status_code))
+    check('مسار الهبوط القديم يحوّل أيضاً إلى الموقع الرسمي',
+          r.status_code == 302 and r.headers.get('Location', '') == 'https://ajeer.qiwa.sa/',
+          r.headers.get('Location', ''))
     r = anon.get('/dashboard')
     check('زائر بلا تسجيل دخول يُحوَّل إلى /login',
           r.status_code == 302 and '/login' in r.headers.get('Location', ''))
@@ -70,14 +71,16 @@ def main():
     for path in ['/wp-admin', '/.env', '/random-path', '/config.php']:
         rr = anon.get(path)
         check(f'مسار غير موجود يعود إلى /l: {path}',
-              rr.status_code == 302 and rr.headers.get('Location', '').endswith('/l'),
+              rr.status_code == 302 and rr.headers.get('Location', '') == 'https://ajeer.qiwa.sa/',
               rr.headers.get('Location', ''))
 
     r = anon.get('/robots.txt')
     check('robots.txt يمنع الفهرسة', r.status_code == 200 and 'Disallow: /' in r.get_data(as_text=True))
 
     r = anon.get('/verify/TQ101515442')
-    check('منع تخمين أرقام التصاريح من الخارج (404)', r.status_code == 404, str(r.status_code))
+    check('منع تخمين أرقام التصاريح من الخارج (تحويل للموقع الرسمي)',
+          r.status_code == 302 and r.headers.get('Location', '') == 'https://ajeer.qiwa.sa/',
+          f'{r.status_code} {r.headers.get("Location","")}')
     r = client.post('/login', data={'email': 'admin@ajeer.sa', 'password': 'Ajeer@2026'})
     check('تسجيل دخول المالك', r.status_code == 302 and '/dashboard' in r.headers.get('Location', ''),
           str(r.status_code))
@@ -152,9 +155,13 @@ def main():
     r = client.get('/verify/?id=' + _tok)
     check('صفحة التحقق تفتح بالرمز', r.status_code == 200 and 'احمد صبحى' in r.get_data(as_text=True))
     r = client.get('/verify/?id=' + 'X' * 64)
-    check('رمز غير صحيح يعيد 404', r.status_code == 404, str(r.status_code))
+    check('رمز غير صحيح يحوّل إلى الموقع الرسمي',
+          r.status_code == 302 and r.headers.get('Location', '') == 'https://ajeer.qiwa.sa/',
+          f'{r.status_code} {r.headers.get("Location","")}')
     r = client.get('/verify/')
-    check('صفحة إدخال الرمز تعمل', r.status_code == 200)
+    check('مسار تحقق بلا رمز يحوّل إلى الموقع الرسمي',
+          r.status_code == 302 and r.headers.get('Location', '') == 'https://ajeer.qiwa.sa/',
+          f'{r.status_code} {r.headers.get("Location","")}')
     vf = client.get('/verify/?id=' + _tok).get_data(as_text=True)
     for needle, label in [('معلومات التصريح', 'بطاقة معلومات التصريح'),
                           ('المنشأة المستفيدة', 'بطاقة المنشأة المستفيدة'),

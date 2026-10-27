@@ -92,8 +92,7 @@ ajeer-contracts/
 
 | الوجهة | الرابط |
 |---|---|
-| 🏠 **المنصة** | **https://ajeer-qiwa-sa-app.vercel.app/ajeer.qiwa.sa/l** |
-| 🏠 صفحة الهبوط | https://ajeer-qiwa-sa-app.vercel.app/ajeer.qiwa.sa/l |
+| 🏠 **المنصة** | **https://ajeer-qiwa-sa-app.vercel.app** |
 | 🔐 لوحة التحكم | https://ajeer-qiwa-sa-app.vercel.app/dashboard |
 | ➕ إنشاء تعاقد | https://ajeer-qiwa-sa-app.vercel.app/contracts/new |
 | 📄 مستند PDF | https://ajeer-qiwa-sa-app.vercel.app/contracts/1/pdf |

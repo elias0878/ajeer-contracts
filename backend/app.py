@@ -87,6 +87,9 @@ def base_url():
 
 
 PUBLIC_LANDING_PATH = '/l'
+# كل زيارة بلا مسار أو لمسار غير موجود/غير صحيح تُحوَّل إلى الموقع الرسمي مباشرة
+# دون عرض أي صفحة أو تفاصيل على المنصة.
+OFFICIAL_HOME_URL = 'https://ajeer.qiwa.sa/'
 
 
 def public_base(s=None):
@@ -94,11 +97,6 @@ def public_base(s=None):
     s = s or settings()
     return (s.get('verify_domain') or _host_base() or DEFAULT_VERIFY_DOMAIN
             or PUBLIC_BASE or request.url_root).rstrip('/')
-
-
-def landing_url(s=None):
-    """الرابط الرسمي لصفحة الهبوط: <domain>/l"""
-    return public_base(s) + PUBLIC_LANDING_PATH
 
 
 HIJRI_EPOCH = 579  # 622 م - 43 فرق التقويمين ≈ 579
@@ -331,13 +329,10 @@ def _gate():
     """حجب كل المسارات غير العامة قبل أي معالجة."""
     if request.endpoint == 'static' or request.path.startswith('/static/'):
         return
-    # أي مسار غير موجود → صفحة الهبوط الرسمية بدل صفحة خطأ
+    # أي مسار غير موجود → الموقع الرسمي مباشرة (بلا عرض أي صفحة أو تفاصيل)
     if request.endpoint is None and request.method in ('GET', 'HEAD') \
             and not request.path.startswith('/api/'):
-        try:
-            return redirect(landing_url())
-        except Exception:
-            return redirect(PUBLIC_LANDING_PATH)
+        return redirect(OFFICIAL_HOME_URL)
     blocked = auth.gate()
     if blocked is not None:
         try:
@@ -502,7 +497,7 @@ def inject_globals():
         permission_map=PERMISSION_MAP, perm_count=len(permissions()),
         action_label=action_label, details_text=details_text,
         details_pairs=details_pairs, entity_label=entity_label,
-        landing_url=landing_url, hijri_year=hijri_year,
+        hijri_year=hijri_year,
         official_verify_url=OFFICIAL_VERIFY_URL,
     )
 
@@ -638,11 +633,8 @@ def account():
 # ---------------------------------------------------------------- contracts
 @app.route('/')
 def root():
-    """الدخول المباشر بلا مسار → صفحة الهبوط الرسمية <domain>/l"""
-    try:
-        return redirect(landing_url())
-    except Exception:
-        return redirect(PUBLIC_LANDING_PATH)
+    """زيارة النطاق بلا مسار → الموقع الرسمي مباشرة بلا عرض أي صفحة."""
+    return redirect(OFFICIAL_HOME_URL)
 
 
 @app.route('/l')
@@ -650,12 +642,8 @@ def root():
 @app.route('/landing')
 @app.route('/landing/')
 def landing():
-    """صفحة الهبوط العامة (الرابط الرسمي: <domain>/l)."""
-    try:
-        u = current_user()
-    except Exception:
-        u = None
-    return render_template('landing.html', page='landing', user=u)
+    """مسارات الهبوط القديمة → الموقع الرسمي (توافق مع الروابط السابقة)."""
+    return redirect(OFFICIAL_HOME_URL)
 
 
 @app.route('/dashboard')
@@ -1334,7 +1322,10 @@ def _render_verify(key):
                            hijri_year=hijri_year(),
                            hijri_year_ar=hijri_year().__str__().translate(
                                str.maketrans('0123456789', '٠١٢٣٤٥٦٧٨٩')))
-    return (resp, 200) if (c or not key) else (resp, 404)
+    if not c:
+        # تصريح غير موجود أو رمز غير صحيح → الموقع الرسمي، دون أي تفاصيل
+        return redirect(OFFICIAL_HOME_URL)
+    return resp, 200
 
 
 @app.route('/verify/')
@@ -1417,11 +1408,9 @@ def webmanifest():
 
 @app.errorhandler(404)
 def not_found(e):
+    # لا صفحة خطأ للزوار: تحويل فوري إلى الموقع الرسمي
     if request.method in ('GET', 'HEAD') and not request.path.startswith(('/api/', '/static/')):
-        try:
-            return redirect(landing_url())
-        except Exception:
-            return redirect(PUBLIC_LANDING_PATH)
+        return redirect(OFFICIAL_HOME_URL)
     return render_template('404.html', page=''), 404
 
 
